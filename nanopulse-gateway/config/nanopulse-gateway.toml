@@ -1,0 +1,10 @@
+[gateway]
+  name = "np-gateway"
+  chipset_vendor = "semtech"
+  chipset = "sx1302"
+  board_vendor = "rak"
+  board_model = "rak2287_8xx"
+  board_mapping = "raspberrypi-usb"
+
+[mqtt]
+  server = "tcp://localhost:1883"

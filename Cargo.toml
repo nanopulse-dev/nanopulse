@@ -1,0 +1,126 @@
+[profile.release]
+  debug = false
+  lto = true
+  opt-level = 'z'
+  strip = true
+  codegen-units = 1
+
+  #[profile.dev]
+  #  debug = 2
+  #  lto = true
+  #  opt-level = "z"
+
+[workspace]
+  resolver = "2"
+  members = [
+    "nanopulse",
+    "nanopulse-server",
+    "nanopulse-gateway",
+    "nanopulse-structs",
+    "nanopulse-hal-sx1302",
+    "nanopulse-device",
+    "examples/nanopulse-device/rp-pico",
+    "examples/nanopulse-device/rp-pico2w",
+  ]
+
+  [workspace.package]
+    version = "0.1.0-test.1"
+    license = "Apache-2.0"
+    authors = ["Orne Brocaar <info@brocaar.com>"]
+    edition = "2024"
+    homepage = "https://www.nanopulse.dev/"
+
+  [workspace.dependencies]
+    # crypto
+    x25519-dalek = { version = "3.0", default-features = false, features = [
+      "static_secrets",
+    ] }
+    hkdf = "0.13"
+    sha2 = { version = "0.11", default-features = false }
+    hmac = "0.13"
+    getrandom = { version = "0.4" }
+    rand_core = { version = "0.9" }
+    chacha20 = { version = "0.10" }
+
+    # embedded
+    heapless = "0.9"
+    defmt = { version = "1.1" }
+    embedded-hal-bus = { version = "0.3", features = ["async"] }
+    embedded-storage = { version = "0.3" }
+    embassy-time = { version = "0.5", features = ["defmt"] }
+    lora-phy = { version = "3.0" }
+    lora-modulation = { version = "0.1" }
+
+    # gateway + server
+    mlua = { version = "0.12", features = [
+      "luajit",
+      "vendored",
+      "anyhow",
+      "serde",
+      "send",
+      "async",
+    ] }
+    lua-src = "551.0.0"
+    serde = { version = "1.0", features = ["derive"] }
+    serde_json = "1.0"
+    json-patch = "4.2"
+    anyhow = "1.0"
+    thiserror = "2.0"
+    config = { version = "0.15", default-features = false, features = ["toml"] }
+    tokio = { version = "1.53", features = [
+      "fs",
+      "time",
+      "rt-multi-thread",
+      "macros",
+      "sync",
+    ] }
+    async-trait = "0.1"
+    tracing = { version = "0.1" }
+    tracing-core = { version = "0.1" }
+    tracing-subscriber = { version = "0.3" }
+    sea-query = { version = "1.0", default-features = false, features = [
+      "backend-sqlite",
+      "derive",
+      "with-chrono",
+      "with-json",
+    ] }
+    sea-query-sqlx = { version = "0.9", features = [
+      "sqlx-sqlite",
+      "with-chrono",
+      "with-json",
+    ] }
+    sqlx = { version = "0.9", features = ["sqlite", "runtime-tokio", "chrono"] }
+    hex = "0.4"
+    base64 = "0.23"
+    tower-http = { version = "0.7", features = ["trace"] }
+    axum = { version = "0.8", features = ["ws"] }
+    rust-embed = { version = "8.12", default-features = false, features = [
+      "axum",
+    ] }
+    utoipa = { version = "5.5", features = ["chrono"] }
+    utoipa-axum = { version = "0.2" }
+    mime_guess = { version = "2.0" }
+    http = { version = "1.4" }
+    utoipa-swagger-ui = { version = "9.0", features = ["vendored", "axum"] }
+    rumqttc-v5-next = { version = "0.34", features = ["url"] }
+    futures-util = "0.3.32"
+    serde_bytes = { version = "0.11" }
+    minicbor = { version = "2.3", features = ["std", "derive"] }
+    bindgen = { version = "0.72" }
+    clap = { version = "4.6", default-features = false, features = [
+      "std",
+      "help",
+      "usage",
+      "derive",
+    ] }
+    gpiocdev = { version = "0.8" }
+    url = "2.5"
+    uuid = { version = "1.24", default-features = false, features = ["v4"] }
+    chrono = { version = "0.4", default-features = false, features = [
+      "std",
+      "now",
+      "serde",
+    ] }
+    validator = { version = "0.21", features = ["derive"] }
+    regex = { version = "1.13" }
+    reqwest = { version = "0.13", features = ["json"] }

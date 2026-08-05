@@ -1,0 +1,3 @@
+test:
+  cross clippy --no-deps
+  cross test

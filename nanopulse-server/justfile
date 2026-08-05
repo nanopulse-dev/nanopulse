@@ -1,0 +1,45 @@
+pkg_version := `cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version'`
+pwd := `pwd`
+variant := "sqlite"
+
+# compile binaries for all targets
+build: \
+    build-x86_64-unknown-linux-musl \
+    build-aarch64-unknown-linux-musl
+
+# build x86_64-unknown-linux-musl
+build-x86_64-unknown-linux-musl:
+  cross build --target x86_64-unknown-linux-musl --release
+
+# build aarch64-unknown-linux-musl
+build-aarch64-unknown-linux-musl:
+  cross build --target aarch64-unknown-linux-musl --release
+
+# build and create distributables
+dist: \
+    dist-x86_64-unknown-linux-musl \
+    dist-aarch64-unknown-linux-musl
+
+# build and created distributables for x86_64-unknown-linux-musl
+dist-x86_64-unknown-linux-musl: build-x86_64-unknown-linux-musl
+  mkdir -p ../dist/nanopulse-server
+  tar -czvf ../dist/nanopulse-server/nanopulse-server-{{variant}}_{{pkg_version}}.amd64.tar.gz \
+    -C ../target/x86_64-unknown-linux-musl/release nanopulse-server \
+    -C {{pwd}} config
+
+
+# build and create distributables for aarch64-unknown-linux-musl
+dist-aarch64-unknown-linux-musl: build-aarch64-unknown-linux-musl
+  mkdir -p ../dist/nanopulse-server
+  tar -czvf ../dist/nanopulse-server/nanopulse-server-{{variant}}_{{pkg_version}}.arm64.tar.gz \
+    -C ../target/aarch64-unknown-linux-musl/release nanopulse-server \
+    -C {{pwd}} config
+
+# run tests
+test: build-ui
+  cargo clippy --no-deps
+  cargo test
+
+# build ui
+build-ui:
+  cd ui && just build

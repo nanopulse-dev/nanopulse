@@ -1,0 +1,6 @@
+test:
+  cargo clippy --no-deps
+  cargo test --features std
+
+build-server:
+  cd ui && pnpm build

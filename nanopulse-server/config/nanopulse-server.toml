@@ -1,0 +1,42 @@
+[logging]
+  # Log level.
+  level = "info"
+
+[keypair]
+  # Server key-pair.
+  #
+  # To generate a key-pair, use the command:
+  # nanopulse-server generate-key-pair
+  public_key = ""
+  secret_key = ""
+
+[database]
+  # Path to database file.
+  path = "sqlite://nanopulse.sqlite"
+
+[api]
+  # Bind interface + port for serving web-interface and API.
+  bind = "0.0.0.0:3030"
+
+[mqtt]
+  # MQTT broker address.
+  server = "tcp://localhost:1883"
+
+  # MQTT username.
+  username = ""
+
+  # MQTT password.
+  password = ""
+
+[integration.home_assistant]
+  # Enable Home Aassistant integration.
+  enabled = false
+
+  # MQTT broker address.
+  mqtt_server = "tcp://homeassistant:1883"
+
+  # MQTT username.
+  mqtt_username = ""
+
+  # MQTT password.
+  mqtt_password = ""

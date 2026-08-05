@@ -1,0 +1,29 @@
+[package]
+  name = "nanopulse-device"
+  description = "Crate for implementing NanoPulse-based IoT devices"
+  version.workspace = true
+  license.workspace = true
+  authors.workspace = true
+  edition.workspace = true
+  publish = true
+
+[dependencies]
+  defmt.workspace = true
+  heapless.workspace = true
+  rand_core = { workspace = true }
+  embassy-time = { workspace = true }
+  embedded-hal-bus = { workspace = true }
+  embedded-storage = { workspace = true }
+  lora-phy = { workspace = true, optional = true }
+  lora-modulation = { workspace = true, optional = true }
+  nanopulse = { path = "../nanopulse/", features = [
+    "defmt",
+  ], version = "0.1.0-test.1" }
+
+[features]
+  default = ["lora_eu868", "lora_sx126x", "nor_flash"]
+  std = []
+  no_flash_write = []
+  lora_eu868 = []
+  nor_flash = []
+  lora_sx126x = ["dep:lora-phy", "dep:lora-modulation"]

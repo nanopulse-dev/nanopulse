@@ -1,0 +1,24 @@
+[package]
+  name = "nanopulse"
+  description = "Crate for encoding / decoding NanoPulse frames"
+  version.workspace = true
+  license.workspace = true
+  authors.workspace = true
+  edition.workspace = true
+  publish = true
+
+[dependencies]
+  x25519-dalek.workspace = true
+  hmac.workspace = true
+  sha2.workspace = true
+  hkdf.workspace = true
+  chacha20.workspace = true
+  heapless.workspace = true
+  thiserror = { workspace = true, optional = true }
+  getrandom = { workspace = true, optional = true }
+  defmt = { workspace = true, optional = true }
+
+[features]
+  default = []
+  std = ["dep:thiserror", "dep:getrandom"]
+  defmt = ["dep:defmt"]

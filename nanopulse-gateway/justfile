@@ -1,0 +1,52 @@
+pkg_version := `cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version'`
+pwd := `pwd`
+
+# compile binaries for all targets
+build: \
+  build-x86_64-unknown-linux-musl \
+  build-armv7-unknown-linux-musleabihf \
+  build-aarch64-unknown-linux-musl
+
+# build x86_64-unknown-linux-musl
+build-x86_64-unknown-linux-musl:
+  cross build --target x86_64-unknown-linux-musl --release
+
+# build armv7-unknown-linux-musleabihf
+build-armv7-unknown-linux-musleabihf:
+  cross build --target armv7-unknown-linux-musleabihf --release
+
+# build aarch64-unknown-linux-musl
+build-aarch64-unknown-linux-musl:
+  cross build --target aarch64-unknown-linux-musl --release
+
+# build and create distributables
+dist: \
+    dist-x86_64-unknown-linux-musl \
+    dist-armv7-unknown-linux-musleabihf \
+    dist-aarch64-unknown-linux-musl
+
+# build and created distributables for x86_64-unknown-linux-musl
+dist-x86_64-unknown-linux-musl: build-x86_64-unknown-linux-musl
+  mkdir -p ../dist/nanopulse-gateway
+  tar -czvf ../dist/nanopulse-gateway/nanopulse-gateway_{{pkg_version}}.amd64.tar.gz \
+    -C ../target/x86_64-unknown-linux-musl/release nanopulse-gateway \
+    -C {{pwd}} config
+
+# build and create distributables for armv7-unknown-linux-musleabihf
+dist-armv7-unknown-linux-musleabihf: build-armv7-unknown-linux-musleabihf
+  mkdir -p ../dist/nanopulse-gateway
+  tar -czvf ../dist/nanopulse-gateway/nanopulse-gateway_{{pkg_version}}.armv7hf.tar.gz \
+    -C ../target/armv7-unknown-linux-musleabihf/release nanopulse-gateway \
+    -C {{pwd}} config
+
+# build and create distributables for aarch64-unknown-linux-musl
+dist-aarch64-unknown-linux-musl: build-aarch64-unknown-linux-musl
+  mkdir -p ../dist/nanopulse-gateway
+  tar -czvf ../dist/nanopulse-gateway/nanopulse-gateway_{{pkg_version}}.arm64.tar.gz \
+    -C ../target/aarch64-unknown-linux-musl/release nanopulse-gateway \
+    -C {{pwd}} config
+  
+# run tests
+test:
+  cross clippy --no-deps
+  cross test

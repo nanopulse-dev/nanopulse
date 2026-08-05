@@ -1,0 +1,23 @@
+# Hidden files
+.*
+!.gitignore
+!.dockerignore
+!.cargo
+!.github
+
+# Cargo bin
+/.cargo/bin
+
+# Build directory
+/dist
+/target
+/nanopulse-server/*.sqlite
+/nanopulse-server/*.sqlite-shm
+/nanopulse-server/*.sqlite-wal
+/nanopulse-server/ui/node_modules/*
+/nanopulse-server/ui/dist
+/nanopulse-server/ui/*.tsbuildinfo
+
+# Documentation builds
+/docs/book
+

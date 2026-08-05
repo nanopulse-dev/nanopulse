@@ -1,0 +1,25 @@
+[book]
+  title = "NanoPulse - open-source IoT toolkit (DRAFT)"
+  authors = []
+  language = "en"
+  src = "src"
+
+[build]
+  create-missing = true
+
+[output.html]
+  site-url = "/docs/draft/"
+  additional-js = ["mermaid.min.js", "mermaid-init.js"]
+  git-repository-url = "https://github.com/nanopulse-dev/nanopulse"
+  git-repository-icon = "fab-github"
+  edit-url-template = "https://github.com/nanopulse-dev/nanopulse/edit/master/docs/{path}"
+
+  [output.html.print]
+    enable = false
+
+  [output.html.fold]
+    enable = false
+    level = 0
+
+[preprocessor.mermaid]
+  command = "mdbook-mermaid"
