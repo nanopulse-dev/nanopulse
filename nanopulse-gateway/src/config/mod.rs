@@ -49,11 +49,7 @@ pub fn get(config_dir: &Path) -> Result<Configuration> {
     info!(config_file = ?conf_file, "reading configuration file");
     let c = config::Config::builder()
         .add_source(config::File::with_name(&conf_file.to_str().unwrap()))
-        .add_source(
-            config::Environment::with_prefix("NP")
-                .prefix_separator("_")
-                .separator("__"),
-        )
+        .add_source(config::Environment::default().separator("__"))
         .build()?;
 
     let conf: Configuration = c.try_deserialize()?;

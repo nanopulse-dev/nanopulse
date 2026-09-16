@@ -102,11 +102,7 @@ pub struct HomeAssistant {
 pub fn load(path: PathBuf) -> Result<()> {
     let c = config::Config::builder()
         .add_source(config::File::with_name(path.to_str().unwrap()))
-        .add_source(
-            config::Environment::with_prefix("NP")
-                .prefix_separator("_")
-                .separator("__"),
-        )
+        .add_source(config::Environment::default().separator("__"))
         .build()?;
 
     let conf: Configuration = c.try_deserialize()?;
