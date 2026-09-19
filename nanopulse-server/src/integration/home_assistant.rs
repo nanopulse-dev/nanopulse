@@ -313,6 +313,7 @@ fn components_from_schemas(
             }
             ComponentType::Switch(_) => {
                 dc.platform = "switch".into();
+                dc.value_template = format!("{{{{value_json.{}}}}}", component_name);
                 dc.command_template = format!("{{\"{}\": \"{{{{value}}}}\"}}", component_name);
             }
         }
