@@ -11,9 +11,8 @@ use nanopulse_structs::gateway::{Timing, TimingDelay, TxCommand};
 use crate::errors::Error;
 use crate::flow::rx::RxFrameSet;
 use crate::gateway::send_tx_command;
-use crate::integration;
-use crate::profile;
 use crate::storage::{device, fields, workspace};
+use crate::{config, integration, profile};
 
 pub struct Flow {
     frame_set: RxFrameSet,
@@ -246,13 +245,22 @@ impl Flow {
             dl_dr,
         );
 
+        let conf = config::get();
+        let network_defaults = conf
+            .network
+            .defaults
+            .get(&self.frame_set.region_module)
+            .cloned()
+            .unwrap_or_default();
+
         let mut pl = frames::Frame {
             payload: frames::Payload::ActivationResponse(activation_response::ActivationResponse {
                 counter: self.activation_response_counter,
                 network_info: activation_response::NetworkInfo::Plain(
                     activation_response::NetworkInfoPlain {
-                        region_id: 0,
-                        channel_plan_id: 0,
+                        channel_plan_id: network_defaults.channel_plan_id,
+                        rx_window_delay: network_defaults.rx_window_delay,
+                        dr_offset: network_defaults.dr_offset,
                     },
                 ),
             }),

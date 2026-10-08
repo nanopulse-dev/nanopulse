@@ -25,6 +25,7 @@ pub struct RxFrameSet {
     pub ul_ch: u8,
     pub ul_dr: u8,
     pub region: Arc<region::Region>,
+    pub region_module: String,
     pub frame: nanopulse::frames::Frame,
     pub rx_info: Vec<RxInfo>,
 }
@@ -49,6 +50,7 @@ pub async fn deduplicate_and_handle(gateway_name: &str, rx_pl: &RxEvent) -> Resu
             context: rx_pl.context.clone(),
         }],
         region: reg,
+        region_module: gw.region_module.clone(),
     };
 
     match dedup.frame.frame_type() {

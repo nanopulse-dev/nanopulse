@@ -4,7 +4,8 @@ use heapless::Vec;
 use rand_core::RngCore;
 
 use nanopulse::frames::{
-    Frame, FrameType, Payload, activation_request, key_exchange_request, state, telemetry,
+    Frame, FrameType, Payload, activation_request, activation_response, key_exchange_request,
+    state, telemetry,
 };
 use nanopulse::keys;
 
@@ -27,6 +28,7 @@ pub struct Device<
     F: Flash,
     const UPLINK_CHANNELS: usize,
     const DOWNLINK_CHANNELS: usize,
+    const CHANNEL_PLAN_IDS: usize,
     const DATA_RATES: usize,
 > {
     state: State,
@@ -36,7 +38,7 @@ pub struct Device<
     session: Session,
     pub root_security: RootSecurity,
     counter_ctx: Counters,
-    region: &'static Region<UPLINK_CHANNELS, DOWNLINK_CHANNELS, DATA_RATES>,
+    region: &'static Region<UPLINK_CHANNELS, DOWNLINK_CHANNELS, CHANNEL_PLAN_IDS, DATA_RATES>,
     config: DeviceConfig,
     rx_buffer: Vec<u8, { nanopulse::BUFFER_SIZE }>,
     rx_len: u8,
@@ -50,8 +52,9 @@ impl<
     F: Flash,
     const UPLINK_CHANNELS: usize,
     const DOWNLINK_CHANNELS: usize,
+    const CHANNEL_PLAN_IDS: usize,
     const DATA_RATES: usize,
-> Device<R, RNG, F, UPLINK_CHANNELS, DOWNLINK_CHANNELS, DATA_RATES>
+> Device<R, RNG, F, UPLINK_CHANNELS, DOWNLINK_CHANNELS, CHANNEL_PLAN_IDS, DATA_RATES>
 {
     pub fn new(
         radio: R,
@@ -59,7 +62,7 @@ impl<
         flash: F,
         root_security: RootSecurity,
         counter_ctx: Counters,
-        region: &'static Region<UPLINK_CHANNELS, DOWNLINK_CHANNELS, DATA_RATES>,
+        region: &'static Region<UPLINK_CHANNELS, DOWNLINK_CHANNELS, CHANNEL_PLAN_IDS, DATA_RATES>,
         config: DeviceConfig,
     ) -> Self {
         Device {
@@ -154,7 +157,9 @@ impl<
                 &self.region.data_rates[self.rx_dr],
                 &pl,
                 &mut self.rx_buffer,
-                Duration::from_secs(5),
+                Duration::from_millis(
+                    self.region.timing_multiplier_ms * self.region.tx_delay_key_exchange_response,
+                ),
             )
             .await?;
         if self.rx_len == 0 {
@@ -234,7 +239,9 @@ impl<
                 &self.region.data_rates[self.rx_dr],
                 &pl,
                 &mut self.rx_buffer,
-                Duration::from_secs(5),
+                Duration::from_millis(
+                    self.region.timing_multiplier_ms * self.region.tx_delay_join_accept,
+                ),
             )
             .await?;
         if self.rx_len == 0 {
@@ -302,7 +309,9 @@ impl<
                 &self.region.data_rates[self.rx_dr],
                 &pl,
                 &mut self.rx_buffer,
-                Duration::from_secs(1),
+                Duration::from_millis(
+                    self.region.timing_multiplier_ms * self.session.rx_window_delay as u64,
+                ),
             )
             .await?;
 
@@ -365,7 +374,9 @@ impl<
                 &self.region.data_rates[self.rx_dr],
                 &pl,
                 &mut self.rx_buffer,
-                Duration::from_secs(1),
+                Duration::from_millis(
+                    self.region.timing_multiplier_ms * self.session.rx_window_delay as u64,
+                ),
             )
             .await?;
 
@@ -442,11 +453,10 @@ impl<
 
                 self.root_security.server_public_key = pub_key.to_bytes();
                 self.root_security.root_key = root_key;
+
                 write_root_security(&mut self.flash, &self.root_security);
 
                 self.state = State::Activate;
-
-                Ok(None)
             }
             Payload::ActivationResponse(pl) => {
                 info!("received ActivationResponse");
@@ -505,12 +515,11 @@ impl<
                     Error::CryptoError
                 })?;
 
+                self.session = Default::default();
                 self.session.session_root_key = sess_root_key;
+
                 write_counters(&mut self.flash, &self.counter_ctx);
-
                 self.state = State::Idle;
-
-                Ok(None)
             }
             _ => {
                 let enc_key = keys::get_encryption_key(
@@ -562,9 +571,22 @@ impl<
                     error!("decrypt error: {}", e);
                     Error::CryptoError
                 })?;
-
-                Ok(Some(resp))
             }
+        }
+
+        // additional data handling after decryption
+        match &resp.payload {
+            Payload::KeyExchangeResponse(_) => Ok(None),
+            Payload::ActivationResponse(pl) => {
+                if let activation_response::NetworkInfo::Plain(ref v) = pl.network_info {
+                    self.session.channel_plan_id = v.channel_plan_id;
+                    self.session.rx_window_delay = v.rx_window_delay;
+                    self.session.dr_offset = v.dr_offset;
+                }
+
+                Ok(None)
+            }
+            _ => Ok(Some(resp)),
         }
     }
 }

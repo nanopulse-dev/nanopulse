@@ -14,7 +14,7 @@ pub struct ActivationResponse {
 impl ActivationResponse {
     pub fn encrypt(&mut self, enc_key: &[u8; 32]) -> Result<(), Error> {
         let mut buffer = if let NetworkInfo::Plain(v) = &self.network_info {
-            [v.region_id, v.channel_plan_id]
+            [v.channel_plan_id | v.rx_window_delay << 4, v.dr_offset]
         } else {
             return Err(Error::AlreadyEncrypted);
         };
@@ -44,8 +44,9 @@ impl ActivationResponse {
         cipher.apply_keystream(&mut buffer);
 
         self.network_info = NetworkInfo::Plain(NetworkInfoPlain {
-            region_id: buffer[0],
-            channel_plan_id: buffer[1],
+            channel_plan_id: buffer[0] & 0x0f,
+            rx_window_delay: (buffer[0] & 0xf0) >> 4,
+            dr_offset: buffer[1] & 0x0f,
         });
 
         Ok(())
@@ -110,6 +111,7 @@ pub enum NetworkInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NetworkInfoPlain {
-    pub region_id: u8,
     pub channel_plan_id: u8,
+    pub rx_window_delay: u8,
+    pub dr_offset: u8,
 }

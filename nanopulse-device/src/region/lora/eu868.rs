@@ -1,12 +1,15 @@
 use crate::data_rate::{DataRate, lora};
 use crate::region::Region;
 
-pub static REGION: Region<8, 8, 6> = Region {
+pub static REGION: Region<8, 8, 1, 6> = Region {
     uplink_channels: [
         868100000, 868300000, 868500000, 867100000, 867300000, 867500000, 867700000, 867900000,
     ],
     downlink_channels: [
         868100000, 868300000, 868500000, 867100000, 867300000, 867500000, 867700000, 867900000,
+    ],
+    channel_plans: [
+        [0, 1, 2, 3, 4, 5, 6, 7], // ID = 0
     ],
     data_rates: [
         DataRate::Lora(lora::Lora {
@@ -45,5 +48,4 @@ pub static REGION: Region<8, 8, 6> = Region {
     timing_multiplier_ms: 1_000,
     tx_delay_key_exchange_response: 5,
     tx_delay_join_accept: 5,
-    tx_delay_data: 1,
 };

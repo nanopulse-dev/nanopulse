@@ -23,6 +23,9 @@ pub struct Session {
     pub telemetry_up: u32,
     pub state_up: u32,
     pub state_down: u32,
+    pub channel_plan_id: u8,
+    pub rx_window_delay: u8,
+    pub dr_offset: u8,
 }
 
 impl Session {

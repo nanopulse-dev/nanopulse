@@ -392,8 +392,9 @@ mod test {
                 counter: 12345,
                 network_info: activation_response::NetworkInfo::Plain(
                     activation_response::NetworkInfoPlain {
-                        region_id: 123,
-                        channel_plan_id: 223,
+                        channel_plan_id: 3,
+                        rx_window_delay: 10,
+                        dr_offset: 1,
                     },
                 ),
             }),
@@ -405,7 +406,7 @@ mod test {
             Frame {
                 payload: Payload::ActivationResponse(activation_response::ActivationResponse {
                     counter: 12345,
-                    network_info: activation_response::NetworkInfo::Encrypted([198, 130]),
+                    network_info: activation_response::NetworkInfo::Encrypted([30, 92]),
                 }),
                 mic: None,
             },
@@ -417,15 +418,15 @@ mod test {
             Frame {
                 payload: Payload::ActivationResponse(activation_response::ActivationResponse {
                     counter: 12345,
-                    network_info: activation_response::NetworkInfo::Encrypted([198, 130]),
+                    network_info: activation_response::NetworkInfo::Encrypted([30, 92]),
                 }),
-                mic: Some([241, 80, 153, 85]),
+                mic: Some([119, 157, 112, 27]),
             },
             pl
         );
 
         let b: Vec<_> = (&pl).try_into().unwrap();
-        assert_eq!(vec![48, 57, 48, 0, 0, 198, 130, 241, 80, 153, 85], b);
+        assert_eq!(vec![48, 57, 48, 0, 0, 30, 92, 119, 157, 112, 27], b);
 
         let pl_new = Frame::try_from(b.as_ref()).unwrap();
         assert_eq!(pl, pl_new);

@@ -65,7 +65,7 @@ type SpiType = ExclusiveDevice<
 type IvType = GenericSx126xInterfaceVariant<Output<'static>, Input<'static>>;
 type LoRaType = LoRa<Sx126x<SpiType, IvType, Sx1262>, Delay>;
 type FlashType = Flash<'static, FLASH, flash::Async, 2097152>;
-type DeviceType = device::Device<LoRaType, RoscRng, FlashType, 8, 8, 6>;
+type DeviceType = device::Device<LoRaType, RoscRng, FlashType, 8, 8, 1, 6>;
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {

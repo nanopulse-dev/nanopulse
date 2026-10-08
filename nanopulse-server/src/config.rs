@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex};
 
@@ -17,6 +18,7 @@ pub struct Configuration {
     pub mqtt: Mqtt,
     pub integration: Integration,
     pub geolocation: Geolocation,
+    pub network: Network,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -88,6 +90,28 @@ impl Default for Geolocation {
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct GeolocationGoogle {
     pub api_key: String,
+}
+
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct Network {
+    pub defaults: HashMap<String, NetworkDefaults>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct NetworkDefaults {
+    pub channel_plan_id: u8,
+    pub rx_window_delay: u8,
+    pub dr_offset: u8,
+}
+
+impl Default for NetworkDefaults {
+    fn default() -> Self {
+        NetworkDefaults {
+            channel_plan_id: 0,
+            rx_window_delay: 1,
+            dr_offset: 0,
+        }
+    }
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]

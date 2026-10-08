@@ -29,9 +29,9 @@ Unique `u32` counter value. See also [Counter](../glossary/counter.md).
 
 Bits:
 
-| 12..15 | 8..11            | 4..7       | 0..3            |
-| ------ | ---------------- | ---------- | --------------- |
-| RFU    | Data-rate offset | Data Delay | Channel-plan ID |
+| 12..15 | 8..11            | 4..7            | 0..3            |
+| ------ | ---------------- | --------------- | --------------- |
+| RFU    | Data-rate offset | RX Window Delay | Channel-plan ID |
 
 ### Encryption
 
