@@ -23,6 +23,8 @@
     "examples/nanopulse-device/rp-pico2w",
   ]
 
+  exclude = ["examples/nanopulse-device/rak3312"]
+
   [workspace.package]
     version = "0.1.0-test.1"
     license = "Apache-2.0"

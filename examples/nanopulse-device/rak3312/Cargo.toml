@@ -1,0 +1,62 @@
+[package]
+  name = "rak3312"
+  version = "0.1.0"
+  license = "Apache-2.0"
+  edition = "2024"
+  publish = false
+
+[dependencies]
+  nanopulse = { path = "../../../nanopulse" }
+  nanopulse-device = { path = "../../../nanopulse-device/", features = [
+    "lora_sx126x",
+  ] }
+
+  defmt = "1.1"
+  defmt-rtt = "1.1"
+  heapless = "0.9"
+
+  embedded-hal = "1.0"
+  embedded-hal-async = "1.0"
+  embedded-io = "0.7"
+  embedded-io-async = "0.7"
+  embedded-storage = "0.3"
+
+  embassy-executor = { version = "0.10", features = [
+    "defmt",
+    "executor-thread",
+    "executor-interrupt",
+  ] }
+  embassy-sync = { version = "0.8" }
+  embassy-time = { version = "0.5", features = [
+    "defmt",
+    "defmt-timestamp-uptime",
+    "generic-queue-64",
+  ] }
+  esp-bootloader-esp-idf = { version = "0.6", features = ["esp32s3"] }
+  esp-hal = { version = "1.2", features = ["esp32s3", "unstable"] }
+  esp-rtos = { version = "0.4", features = [
+    "esp32s3",
+    "embassy",
+    "esp-radio",
+    "esp-alloc",
+  ] }
+  esp-radio = { version = "1.0.0-beta.1", features = [
+    "wifi",
+    "esp32s3",
+    "esp-alloc",
+  ] }
+  esp-alloc = { version = "0.11.0", features = ["esp32s3"] }
+  esp-backtrace = { version = "0.20", features = [
+    "esp32s3",
+    "panic-handler",
+    "defmt",
+  ] }
+  esp-storage = { version = "0.10", features = [
+    "embedded-storage",
+    "esp32s3",
+    "defmt",
+  ] }
+
+[profile.release]
+  debug = true
+  strip = false

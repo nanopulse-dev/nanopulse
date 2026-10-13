@@ -14,11 +14,12 @@ To compile and flash this example, You need a working Rust environment and
 
 ## Running the example
 
-**Note:** The `nanopulse_device` crate is compiled with the `no_flash_write`
-flag enabled in this example. This disables flashing the security context to the
-RP2040 flash. Therefore, each time when you turn on the device, a new key-pair
-and PIN is generated! If you would like to persist the security-context, remove
-this feature flag from `Cargo.toml` and recompile & flash the example.
+**Note:** On the first usage, this will create a key-pair + PIN, which will be
+persistent in the flash memory of the chip. Reflashing will not overwrite this
+key-pair. To erase the key-pair and PIN, execute the command
+`probe-rs erase --chip RP2040` (make sure 2MB of memory is erased).
+Alternatively, you can use the `no_flash_write` feature of the
+`nanopulse_device` crate, which will disable writing to flash.
 
 To compile, flash and run the example and view its log output, execute:
 

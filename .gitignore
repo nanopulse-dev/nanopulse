@@ -9,15 +9,18 @@
 /.cargo/bin
 
 # Build directory
-/dist
-/target
-/nanopulse-server/*.sqlite
-/nanopulse-server/*.sqlite-shm
-/nanopulse-server/*.sqlite-wal
-/nanopulse-server/ui/node_modules/*
-/nanopulse-server/ui/dist
-/nanopulse-server/ui/*.tsbuildinfo
+dist/
+target/
+node_modules/
+
+# Files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.tsbuildinfo
 
 # Documentation builds
 /docs/book
 
+# Example lockfiles
+/examples/**/Cargo.lock
