@@ -35,16 +35,11 @@ function M.state_schema()
 		led = {
 			name = "LED",
 			component = {
-				switch = {},
+				switch = {
+					default = false,
+				},
 			},
 		},
-	}
-end
-
--- Default state.
-function M.default_state()
-	return {
-		led = false,
 	}
 end
 

@@ -28,7 +28,7 @@ pub enum ComponentType {
     #[serde(rename = "tracker")]
     Tracker(TrackerType),
     #[serde(rename = "switch")]
-    Switch(NoProps),
+    Switch(SwitchType),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,7 +62,9 @@ pub enum LocationSourceType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NoProps {}
+pub struct SwitchType {
+    pub default: bool,
+}
 
 pub fn get_profile(
     vendor_id: &[u8; 4],
