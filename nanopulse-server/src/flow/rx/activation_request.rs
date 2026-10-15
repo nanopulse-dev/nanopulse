@@ -65,7 +65,7 @@ impl Flow {
 
         async {
             self.decrypt_payload().await?;
-            self.get_vendor_profile().await?;
+            self.get_profile().await?;
             self.update_device().await?;
             self.send_activation_response().await?;
             self.send_activation_event().await?;
@@ -163,8 +163,8 @@ impl Flow {
         Ok(())
     }
 
-    async fn get_vendor_profile(&mut self) -> Result<(), Error> {
-        trace!("get_vendor_profile fn");
+    async fn get_profile(&mut self) -> Result<(), Error> {
+        trace!("get_profile fn");
         let pl = self.activation_request_payload.as_ref().unwrap();
 
         let v = profile::get_vendor(&pl.vendor_id)?;
@@ -181,9 +181,6 @@ impl Flow {
         let pl = self.activation_request_payload.as_ref().unwrap();
         let v = self.vendor.as_ref().unwrap();
         let p = self.profile.as_ref().unwrap();
-
-        let default_state = profile::get_default_state(&p.get_lua_module())?;
-        let default_configuration = profile::get_default_configuration(&p.get_lua_module())?;
 
         self.activation_response_counter =
             device::get_next_counter(self.device.id, device::ACTIVATION_RESPONSE_COUNTER).await?;
@@ -207,8 +204,8 @@ impl Flow {
                 activation_response: self.activation_response_counter + 1,
                 ..Default::default()
             }),
-            state: Some(default_state),
-            configuration: Some(default_configuration),
+            state: Some(p.get_default_state()),
+            configuration: Some(p.get_default_configuration()),
             ..Default::default()
         };
 
@@ -298,14 +295,13 @@ impl Flow {
     async fn send_activation_event(&self) -> Result<(), Error> {
         trace!("send_activation_event fn");
 
-        let telemetry_schema = profile::get_telemetry_schema(&self.device.lua_profile_module())?;
-        let state_schema = profile::get_state_schema(&self.device.lua_profile_module())?;
+        let p = self.profile.as_ref().unwrap();
 
         let pl = integration::ActivationEvent {
             timestamp: Utc::now(),
             device_info: integration::DeviceInfo::new(&self.workspace, &self.device),
-            telemetry_schema,
-            state_schema,
+            telemetry_schema: p.telemetry_schema.clone(),
+            state_schema: p.state_schema.clone(),
         };
         integration::activation_event(&pl).await;
 

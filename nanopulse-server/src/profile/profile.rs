@@ -12,16 +12,47 @@ pub struct Profile {
     lua_module: String,
     pub name: String,
     pub description: String,
+    pub telemetry_schema: HashMap<String, Component>,
+    pub state_schema: HashMap<String, Component>,
+    pub configuration_schema: HashMap<String, Configuration>,
 }
 
 impl Profile {
     pub fn get_lua_module(&self) -> String {
         self.lua_module.clone()
     }
-}
 
-pub type ComponentSchema = HashMap<String, Component>;
-pub type ConfigurationSchema = HashMap<String, Configuration>;
+    pub fn get_default_state(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+
+        for (k, v) in self.state_schema.iter() {
+            out.insert(
+                k.into(),
+                match &v.component {
+                    ComponentType::Switch(v) => serde_json::Value::Bool(v.default),
+                    _ => continue,
+                },
+            );
+        }
+
+        serde_json::Value::Object(out)
+    }
+
+    pub fn get_default_configuration(&self) -> serde_json::Value {
+        let mut out = serde_json::Map::new();
+
+        for (k, v) in self.configuration_schema.iter() {
+            out.insert(
+                k.into(),
+                match &v.configuration {
+                    ConfigurationType::Interval(v) => serde_json::Value::Number(v.default.into()),
+                },
+            );
+        }
+
+        serde_json::Value::Object(out)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Component {
@@ -102,6 +133,7 @@ pub fn get_profile(
     let vendor_id = hex::encode(vendor_id);
     let profile_id = hex::encode(profile_id);
     let version_id = hex::encode(version_id);
+
     info!(vendor_id = %vendor_id, profile_id = %profile_id, version_id = %version_id, "Loading profile information");
 
     let lua_module = format!(
@@ -116,16 +148,12 @@ pub fn get_profile(
     Ok(Profile {
         name: profile.get("name")?,
         description: profile.get("description")?,
+        telemetry_schema: lua.from_value(profile.get::<Function>("telemetry_schema")?.call(())?)?,
+        state_schema: lua.from_value(profile.get::<Function>("state_schema")?.call(())?)?,
+        configuration_schema: lua
+            .from_value(profile.get::<Function>("configuration_schema")?.call(())?)?,
         lua_module,
     })
-}
-
-pub fn get_telemetry_schema(profile_mod: &str) -> Result<ComponentSchema> {
-    let lua = lua::get()?;
-    let function: Function = lua::get_function(&lua, profile_mod, "telemetry_schema")?;
-    let value: Value = function.call(())?;
-
-    Ok(lua.from_value(value)?)
 }
 
 pub async fn decode_telemetry(profile_mod: &str, pl: &[u8]) -> Result<serde_json::Value> {
@@ -134,31 +162,6 @@ pub async fn decode_telemetry(profile_mod: &str, pl: &[u8]) -> Result<serde_json
     let value: Value = function.call_async(pl).await?;
 
     Ok(serde_json::to_value(value)?)
-}
-
-pub fn get_state_schema(profile_mod: &str) -> Result<ComponentSchema> {
-    let lua = lua::get()?;
-    let function: Function = lua::get_function(&lua, profile_mod, "state_schema")?;
-    let value: Value = function.call(())?;
-
-    Ok(lua.from_value(value)?)
-}
-
-pub fn get_default_state(profile_mod: &str) -> Result<serde_json::Value> {
-    let state = get_state_schema(profile_mod)?;
-    let mut out = serde_json::Map::new();
-
-    for (k, v) in state.iter() {
-        out.insert(
-            k.into(),
-            match &v.component {
-                ComponentType::Switch(v) => serde_json::Value::Bool(v.default),
-                _ => continue,
-            },
-        );
-    }
-
-    Ok(serde_json::Value::Object(out))
 }
 
 pub fn encode_state(profile_mod: &str, pl: &serde_json::Value) -> Result<Vec<u8>> {
@@ -175,29 +178,6 @@ pub fn decode_state(profile_mod: &str, pl: &[u8]) -> Result<serde_json::Value> {
     let value: Value = function.call(pl)?;
 
     Ok(serde_json::to_value(value)?)
-}
-
-pub fn get_configuration_schema(profile_mod: &str) -> Result<ConfigurationSchema> {
-    let lua = lua::get()?;
-    let function: Function = lua::get_function(&lua, profile_mod, "configuration_schema")?;
-    let value: Value = function.call(())?;
-    Ok(lua.from_value(value)?)
-}
-
-pub fn get_default_configuration(profile_mod: &str) -> Result<serde_json::Value> {
-    let schema = get_configuration_schema(profile_mod)?;
-    let mut out = serde_json::Map::new();
-
-    for (k, v) in schema.iter() {
-        out.insert(
-            k.into(),
-            match &v.configuration {
-                ConfigurationType::Interval(v) => serde_json::Value::Number(v.default.into()),
-            },
-        );
-    }
-
-    Ok(serde_json::Value::Object(out))
 }
 
 pub fn encode_configuration(profile_mod: &str, pl: &serde_json::Value) -> Result<Vec<u8>> {

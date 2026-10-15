@@ -27,6 +27,7 @@ pub const CONFIG_DOWN_COUNTER: &str = "config_down";
 pub struct Device {
     #[serde(skip)]
     pub id: i64,
+
     #[serde(skip)]
     pub workspace_id: i64,
 

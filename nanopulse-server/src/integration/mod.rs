@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use anyhow::Result;
@@ -9,7 +10,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::config;
-use crate::profile::ComponentSchema;
+use crate::profile::Component;
 use crate::storage::{device, workspace};
 
 mod handlers;
@@ -67,8 +68,8 @@ pub struct KeyExchangeEvent {
 pub struct ActivationEvent {
     pub timestamp: DateTime<Utc>,
     pub device_info: DeviceInfo,
-    pub telemetry_schema: ComponentSchema,
-    pub state_schema: ComponentSchema,
+    pub telemetry_schema: HashMap<String, Component>,
+    pub state_schema: HashMap<String, Component>,
 }
 
 #[derive(Default, Debug, Clone, Serialize)]
