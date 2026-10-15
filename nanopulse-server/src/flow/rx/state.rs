@@ -7,6 +7,7 @@ use nanopulse::keys;
 
 use crate::errors::Error;
 use crate::flow::rx::RxFrameSet;
+use crate::flow::tx;
 use crate::integration;
 use crate::profile::decode_state;
 use crate::storage::{device, workspace};
@@ -61,6 +62,7 @@ impl Flow {
             self.decode_state()?;
             self.update_device().await?;
             self.send_to_integration().await?;
+            self.start_tx_flow().await?;
             Ok(())
         }
         .instrument(span)
@@ -148,5 +150,16 @@ impl Flow {
         integration::state_event(&pl).await;
 
         Ok(())
+    }
+
+    async fn start_tx_flow(&self) -> Result<(), Error> {
+        trace!("start_tx_flow fn");
+
+        tx::response_flow(
+            self.frame_set.clone(),
+            self.device.clone(),
+            self.workspace.clone(),
+        )
+        .await
     }
 }

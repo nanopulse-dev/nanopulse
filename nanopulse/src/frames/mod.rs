@@ -7,6 +7,7 @@ use crate::errors::Error;
 
 pub mod activation_request;
 pub mod activation_response;
+pub mod configuration;
 pub mod key_exchange_request;
 pub mod key_exchange_response;
 pub mod state;
@@ -23,6 +24,7 @@ pub enum FrameType {
     ActivationResponse = 0x03,
     Telemetry = 0x06,
     State = 0x07,
+    Configuration = 0x08,
 }
 
 impl FrameType {
@@ -42,6 +44,7 @@ impl TryFrom<u8> for FrameType {
             0x03 => Ok(FrameType::ActivationResponse),
             0x06 => Ok(FrameType::Telemetry),
             0x07 => Ok(FrameType::State),
+            0x08 => Ok(FrameType::Configuration),
             _ => Err(Error::InvalidFrameType),
         }
     }
@@ -61,6 +64,7 @@ pub enum Payload {
     ActivationResponse(activation_response::ActivationResponse),
     Telemetry(telemetry::Telemetry),
     State(state::State),
+    Configuration(configuration::Configuration),
 }
 
 impl Payload {
@@ -70,6 +74,7 @@ impl Payload {
             Payload::ActivationResponse(v) => v.encrypt(enc_key),
             Payload::Telemetry(v) => v.encrypt(enc_key),
             Payload::State(v) => v.encrypt(enc_key),
+            Payload::Configuration(v) => v.encrypt(enc_key),
             _ => Ok(()),
         }
     }
@@ -80,6 +85,7 @@ impl Payload {
             Payload::ActivationResponse(v) => v.decrypt(enc_key),
             Payload::Telemetry(v) => v.decrypt(enc_key),
             Payload::State(v) => v.decrypt(enc_key),
+            Payload::Configuration(v) => v.decrypt(enc_key),
             _ => Ok(()),
         }
     }
@@ -110,6 +116,9 @@ impl TryFrom<&[u8]> for Payload {
             ),
             FrameType::Telemetry => Payload::Telemetry(telemetry::Telemetry::try_from(value)?),
             FrameType::State => Payload::State(state::State::try_from(value)?),
+            FrameType::Configuration => {
+                Payload::Configuration(configuration::Configuration::try_from(value)?)
+            }
         })
     }
 }
@@ -125,6 +134,7 @@ impl TryFrom<&Payload> for Buffer {
             Payload::ActivationResponse(v) => v.try_into(),
             Payload::Telemetry(v) => Ok(v.into()),
             Payload::State(v) => Ok(v.into()),
+            Payload::Configuration(v) => Ok(v.into()),
         }
     }
 }
@@ -144,6 +154,7 @@ impl Frame {
             Payload::ActivationResponse(_) => FrameType::ActivationResponse,
             Payload::Telemetry(_) => FrameType::Telemetry,
             Payload::State(_) => FrameType::State,
+            Payload::Configuration(_) => FrameType::Configuration,
         }
     }
 
@@ -178,6 +189,7 @@ impl Frame {
             Payload::ActivationResponse(pl) => &TryInto::<[u8; 7]>::try_into(pl)?,
             Payload::Telemetry(pl) => &Buffer::from(pl),
             Payload::State(pl) => &Buffer::from(pl),
+            Payload::Configuration(pl) => &Buffer::from(pl),
             _ => return Err(Error::InvalidPayload),
         };
 
@@ -525,6 +537,58 @@ mod test {
         assert_eq!(
             vec![
                 113, 1, 2, 3, 4, 57, 48, 0, 0, 188, 95, 115, 168, 112, 188, 224, 52, 72
+            ],
+            b
+        );
+
+        let pl_new = Frame::try_from(b.as_ref()).unwrap();
+        assert_eq!(pl, pl_new);
+    }
+
+    #[test]
+    fn test_configuration() {
+        let mut pl = Frame {
+            payload: Payload::Configuration(configuration::Configuration {
+                short_id: [1, 2, 3, 4],
+                is_downlink: true,
+                counter: 12345,
+                payload: [1, 2, 3, 4, 5].try_into().unwrap(),
+            }),
+            mic: None,
+        };
+
+        pl.encrypt(&TEST_KEY).unwrap();
+        assert_eq!(
+            Frame {
+                payload: Payload::Configuration(configuration::Configuration {
+                    short_id: [1, 2, 3, 4],
+                    is_downlink: true,
+                    counter: 12345,
+                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                }),
+                mic: None,
+            },
+            pl
+        );
+
+        pl.set_mic(&TEST_KEY).unwrap();
+        assert_eq!(
+            Frame {
+                payload: Payload::Configuration(configuration::Configuration {
+                    short_id: [1, 2, 3, 4],
+                    is_downlink: true,
+                    counter: 12345,
+                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                }),
+                mic: Some([163, 108, 98, 204]),
+            },
+            pl
+        );
+
+        let b: Vec<_> = (&pl).try_into().unwrap();
+        assert_eq!(
+            vec![
+                129, 1, 2, 3, 4, 57, 48, 0, 0, 188, 95, 115, 168, 112, 163, 108, 98, 204
             ],
             b
         );

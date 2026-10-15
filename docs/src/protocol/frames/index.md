@@ -31,7 +31,7 @@ Bits:
 | `0x05` | MAC Command                                         | Device <> Server | Yes |
 | `0x06` | [Telemetry](./telemetry.md)                         | Device > Server  | Yes |
 | `0x07` | [State](./state.md)                                 | Device <> Server | Yes |
-| `0x08` | Configuration                                       | Device <> Server | Yes |
+| `0x08` | [Configuration](./configuration.md)                 | Device <> Server | Yes |
 | `0x09` | Command                                             | Device <> Server | Yes |
 | `0x0A` | Binary (?)                                          | Device <> Server | Yes |
 | `0x0B` | Fragmented Binary (?)                               | Device <> Server | Yes |

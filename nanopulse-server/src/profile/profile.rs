@@ -9,11 +9,19 @@ use crate::lua;
 
 #[derive(Default, Debug, Deserialize, Clone)]
 pub struct Profile {
+    lua_module: String,
     pub name: String,
     pub description: String,
 }
 
+impl Profile {
+    pub fn get_lua_module(&self) -> String {
+        self.lua_module.clone()
+    }
+}
+
 pub type ComponentSchema = HashMap<String, Component>;
+pub type ConfigurationSchema = HashMap<String, Configuration>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Component {
@@ -66,6 +74,26 @@ pub struct SwitchType {
     pub default: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Configuration {
+    pub name: String,
+    pub configuration: ConfigurationType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ConfigurationType {
+    #[serde(rename = "interval")]
+    Interval(IntervalConfig),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntervalConfig {
+    pub unit: String,
+    pub default: usize,
+    pub min: usize,
+    pub max: usize,
+}
+
 pub fn get_profile(
     vendor_id: &[u8; 4],
     profile_id: &[u8; 2],
@@ -76,17 +104,28 @@ pub fn get_profile(
     let version_id = hex::encode(version_id);
     info!(vendor_id = %vendor_id, profile_id = %profile_id, version_id = %version_id, "Loading profile information");
 
-    let lua = lua::get()?;
-    let require: Function = lua.globals().get("require")?;
-    let profile: Table = require.call(format!(
+    let lua_module = format!(
         "vendors.{}.profiles.{}_{}",
         vendor_id, profile_id, version_id
-    ))?;
+    );
+
+    let lua = lua::get()?;
+    let require: Function = lua.globals().get("require")?;
+    let profile: Table = require.call(lua_module.clone())?;
 
     Ok(Profile {
         name: profile.get("name")?,
         description: profile.get("description")?,
+        lua_module,
     })
+}
+
+pub fn get_telemetry_schema(profile_mod: &str) -> Result<ComponentSchema> {
+    let lua = lua::get()?;
+    let function: Function = lua::get_function(&lua, profile_mod, "telemetry_schema")?;
+    let value: Value = function.call(())?;
+
+    Ok(lua.from_value(value)?)
 }
 
 pub async fn decode_telemetry(profile_mod: &str, pl: &[u8]) -> Result<serde_json::Value> {
@@ -95,6 +134,31 @@ pub async fn decode_telemetry(profile_mod: &str, pl: &[u8]) -> Result<serde_json
     let value: Value = function.call_async(pl).await?;
 
     Ok(serde_json::to_value(value)?)
+}
+
+pub fn get_state_schema(profile_mod: &str) -> Result<ComponentSchema> {
+    let lua = lua::get()?;
+    let function: Function = lua::get_function(&lua, profile_mod, "state_schema")?;
+    let value: Value = function.call(())?;
+
+    Ok(lua.from_value(value)?)
+}
+
+pub fn get_default_state(profile_mod: &str) -> Result<serde_json::Value> {
+    let state = get_state_schema(profile_mod)?;
+    let mut out = serde_json::Map::new();
+
+    for (k, v) in state.iter() {
+        out.insert(
+            k.into(),
+            match &v.component {
+                ComponentType::Switch(v) => serde_json::Value::Bool(v.default),
+                _ => continue,
+            },
+        );
+    }
+
+    Ok(serde_json::Value::Object(out))
 }
 
 pub fn encode_state(profile_mod: &str, pl: &serde_json::Value) -> Result<Vec<u8>> {
@@ -113,20 +177,43 @@ pub fn decode_state(profile_mod: &str, pl: &[u8]) -> Result<serde_json::Value> {
     Ok(serde_json::to_value(value)?)
 }
 
-pub fn get_telemetry_schema(profile_mod: &str) -> Result<ComponentSchema> {
+pub fn get_configuration_schema(profile_mod: &str) -> Result<ConfigurationSchema> {
     let lua = lua::get()?;
-    let function: Function = lua::get_function(&lua, profile_mod, "telemetry_schema")?;
+    let function: Function = lua::get_function(&lua, profile_mod, "configuration_schema")?;
     let value: Value = function.call(())?;
+    Ok(lua.from_value(value)?)
+}
+
+pub fn get_default_configuration(profile_mod: &str) -> Result<serde_json::Value> {
+    let schema = get_configuration_schema(profile_mod)?;
+    let mut out = serde_json::Map::new();
+
+    for (k, v) in schema.iter() {
+        out.insert(
+            k.into(),
+            match &v.configuration {
+                ConfigurationType::Interval(v) => serde_json::Value::Number(v.default.into()),
+            },
+        );
+    }
+
+    Ok(serde_json::Value::Object(out))
+}
+
+pub fn encode_configuration(profile_mod: &str, pl: &serde_json::Value) -> Result<Vec<u8>> {
+    let lua = lua::get()?;
+    let function = lua::get_function(&lua, profile_mod, "encode_configuration")?;
+    let value: Value = function.call(lua.to_value(pl)?)?;
 
     Ok(lua.from_value(value)?)
 }
 
-pub fn get_state_schema(profile_mod: &str) -> Result<ComponentSchema> {
+pub fn decode_configuration(profile_mod: &str, pl: &[u8]) -> Result<serde_json::Value> {
     let lua = lua::get()?;
-    let function: Function = lua::get_function(&lua, profile_mod, "state_schema")?;
-    let value: Value = function.call(())?;
+    let function = lua::get_function(&lua, profile_mod, "decode_configuration")?;
+    let value: Value = function.call(pl)?;
 
-    Ok(lua.from_value(value)?)
+    Ok(serde_json::to_value(value)?)
 }
 
 #[cfg(test)]
@@ -220,6 +307,77 @@ mod test {
                 }
             }),
             serde_json::to_value(schema).unwrap(),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_configuration_schema() {
+        let _guard = test::prepare().await;
+        let mut s = ConfigurationSchema::new();
+        s.insert(
+            "telemetry_interval".into(),
+            Configuration {
+                name: "Telemetry interval".into(),
+                configuration: ConfigurationType::Interval(IntervalConfig {
+                    unit: "s".into(),
+                    default: 30,
+                    min: 5,
+                    max: 300,
+                }),
+            },
+        );
+
+        assert_eq!(
+            json!({
+                "telemetry_interval": {
+                    "name": "Telemetry interval",
+                    "configuration": {
+                        "interval": {
+                            "unit": "s",
+                            "default": 30,
+                            "min": 5,
+                            "max": 300,
+                        }
+                    }
+                }
+            }),
+            serde_json::to_value(s).unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_configuration_schema() {
+        let _guard = test::prepare().await;
+        let schema = get_configuration_schema("vendors.00000000.profiles.0000_0000").unwrap();
+
+        assert_eq!(
+            json!({
+                "telemetry_interval": {
+                    "name": "Telemetry interval",
+                    "configuration": {
+                        "interval": {
+                            "unit": "s",
+                            "default": 30,
+                            "min": 5,
+                            "max": 300,
+                        }
+                    }
+                }
+            }),
+            serde_json::to_value(schema).unwrap(),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_default_configuration() {
+        let _guard = test::prepare().await;
+        let default = get_default_configuration("vendors.00000000.profiles.0000_0000").unwrap();
+
+        assert_eq!(
+            json!({
+                "telemetry_interval": 30,
+            }),
+            serde_json::to_value(default).unwrap(),
         );
     }
 }

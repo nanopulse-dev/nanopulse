@@ -182,6 +182,9 @@ impl Flow {
         let v = self.vendor.as_ref().unwrap();
         let p = self.profile.as_ref().unwrap();
 
+        let default_state = profile::get_default_state(&p.get_lua_module())?;
+        let default_configuration = profile::get_default_configuration(&p.get_lua_module())?;
+
         self.activation_response_counter =
             device::get_next_counter(self.device.id, device::ACTIVATION_RESPONSE_COUNTER).await?;
 
@@ -204,6 +207,8 @@ impl Flow {
                 activation_response: self.activation_response_counter + 1,
                 ..Default::default()
             }),
+            state: Some(default_state),
+            configuration: Some(default_configuration),
             ..Default::default()
         };
 

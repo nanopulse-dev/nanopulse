@@ -30,6 +30,7 @@
   - [Activation Response](./protocol/frames/activation-response.md)
   - [Telemetry](./protocol/frames/telemetry.md)
   - [State](./protocol/frames/state.md)
+  - [Configuration](./protocol/frames/configuration.md)
 - [Glossary](./protocol/glossary/index.md)
   - [Counter](./protocol/glossary/counter.md)
   - [Encryption](./protocol/glossary/encryption.md)

@@ -160,16 +160,11 @@ impl Flow {
     async fn start_tx_flow(&self) -> Result<(), Error> {
         trace!("start_tx_flow fn");
 
-        if self.device.needs_state_sync() {
-            tx::state::Flow::new(
-                self.frame_set.clone(),
-                self.device.clone(),
-                self.workspace.clone(),
-            )
-            .handle_response()
-            .await
-        } else {
-            Ok(())
-        }
+        tx::response_flow(
+            self.frame_set.clone(),
+            self.device.clone(),
+            self.workspace.clone(),
+        )
+        .await
     }
 }

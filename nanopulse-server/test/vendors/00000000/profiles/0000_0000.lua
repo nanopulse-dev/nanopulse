@@ -2,7 +2,6 @@ local M = require("vendors.00000000.profiles.0000")
 
 M.region = require("regions.lora.eu868")
 
--- Returns the telemetry schema.
 function M.telemetry_schema()
 	return {
 		temperature = {
@@ -18,7 +17,6 @@ function M.telemetry_schema()
 	}
 end
 
--- Decode telemetry.
 function M.decode_telemetry(payload)
 	if #payload ~= 2 then
 		error("invalid payload length")
@@ -29,7 +27,6 @@ function M.decode_telemetry(payload)
 	}
 end
 
--- Returns the state schema.
 function M.state_schema()
 	return {
 		led = {
@@ -43,7 +40,6 @@ function M.state_schema()
 	}
 end
 
--- Decode state payload.
 function M.decode_state(payload)
 	if #payload ~= 1 then
 		error("invalid payload length")
@@ -56,13 +52,28 @@ function M.decode_state(payload)
 	return { led = false }
 end
 
--- Encode state payload
 function M.encode_state(payload)
 	if payload.led == true then
 		return { 0x01 }
 	end
 
 	return { 0x00 }
+end
+
+function M.configuration_schema()
+	return {
+		telemetry_interval = {
+			name = "Telemetry interval",
+			configuration = {
+				interval = {
+					unit = "s",
+					default = 30,
+					min = 5,
+					max = 300,
+				},
+			},
+		},
+	}
 end
 
 return M

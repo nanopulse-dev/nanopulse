@@ -13,9 +13,13 @@ pub fn setup(paths: &[String]) -> Result<()> {
     let lua = Lua::new();
     let np_table = lua.create_table()?;
 
+    helpers::encode_u16_le(&np_table)?;
     helpers::decode_u16_le(&np_table)?;
+    helpers::encode_i16_le(&np_table)?;
     helpers::decode_i16_le(&np_table)?;
+    helpers::encode_u32_le(&np_table)?;
     helpers::decode_u32_le(&np_table)?;
+    helpers::encode_i32_le(&np_table)?;
     helpers::decode_i32_le(&np_table)?;
 
     wifi::wifi_resolve_location(&lua, &np_table)?;

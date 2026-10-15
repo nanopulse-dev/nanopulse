@@ -12,12 +12,14 @@ use validator::Validate;
 use crate::errors::Error;
 use crate::storage::{NAME_REGEX, fields, get_conn, json_value};
 
-pub const KEY_EXCHANGE_RESPONSE_COUNTER: &str = "key_exchange_response";
-pub const ACTIVATION_REQUEST_COUNTER: &str = "activation_request";
-pub const ACTIVATION_RESPONSE_COUNTER: &str = "activation_response";
-pub const TELEMETRY_UP_COUNTER: &str = "telemetry_up";
+pub const KEY_EXCHANGE_RESPONSE_COUNTER: &str = "key_xs_resp";
+pub const ACTIVATION_REQUEST_COUNTER: &str = "act_req";
+pub const ACTIVATION_RESPONSE_COUNTER: &str = "act_resp";
+pub const TELEMETRY_UP_COUNTER: &str = "telem_up";
 pub const STATE_UP_COUNTER: &str = "state_up";
 pub const STATE_DOWN_COUNTER: &str = "state_down";
+pub const CONFIG_UP_COUNTER: &str = "config_up";
+pub const CONFIG_DOWN_COUNTER: &str = "config_down";
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, FromRow, Validate, PartialEq, Eq)]
 #[enum_def]
@@ -109,7 +111,33 @@ impl Device {
     }
 
     pub fn needs_state_sync(&self) -> bool {
-        self.state != self.state_desired
+        let state = match self.state.as_object() {
+            Some(v) => v,
+            None => return false,
+        };
+
+        let state_desired = match self.state_desired.as_object() {
+            Some(v) => v,
+            None => return false,
+        };
+
+        state_desired.iter().all(|(k, v)| state.get(k) == Some(v))
+    }
+
+    pub fn needs_configuration_sync(&self) -> bool {
+        let configuration = match self.configuration.as_object() {
+            Some(v) => v,
+            None => return false,
+        };
+
+        let configuration_desired = match self.configuration_desired.as_object() {
+            Some(v) => v,
+            None => return false,
+        };
+
+        configuration_desired
+            .iter()
+            .all(|(k, v)| configuration.get(k) == Some(v))
     }
 }
 
@@ -164,6 +192,8 @@ pub struct DeviceChangeSet {
     pub counters: Option<Counters>,
     pub state: Option<serde_json::Value>,
     pub state_desired: Option<serde_json::Value>,
+    pub configuration: Option<serde_json::Value>,
+    pub configuration_desired: Option<serde_json::Value>,
 }
 
 #[derive(Default, Debug, Deserialize, Clone, Serialize, PartialEq, Eq)]
@@ -330,6 +360,12 @@ pub async fn update(id: i64, changes: &DeviceChangeSet) -> Result<Device, Error>
     }
     if let Some(v) = &changes.state_desired {
         values.push((DeviceIden::StateDesired, json_value(v).into()));
+    }
+    if let Some(v) = &changes.configuration {
+        values.push((DeviceIden::Configuration, json_value(v).into()));
+    }
+    if let Some(v) = &changes.configuration_desired {
+        values.push((DeviceIden::ConfigurationDesired, json_value(v).into()));
     }
 
     if values.is_empty() {
