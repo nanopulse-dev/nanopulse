@@ -4,11 +4,14 @@ use anyhow::Result;
 use mlua::{Function, LuaSerdeExt, Table, Value};
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use utoipa::ToSchema;
 
+use crate::errors::Error;
 use crate::lua;
 
-#[derive(Default, Debug, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Profile {
+    #[serde(skip)]
     lua_module: String,
     pub name: String,
     pub description: String,
@@ -22,7 +25,7 @@ impl Profile {
         vendor_id: &[u8; 4],
         profile_id: &[u8; 2],
         version_id: &[u8; 2],
-    ) -> Result<Profile> {
+    ) -> Result<Profile, Error> {
         let vendor_id = hex::encode(vendor_id);
         let profile_id = hex::encode(profile_id);
         let version_id = hex::encode(version_id);
@@ -32,10 +35,10 @@ impl Profile {
             vendor_id, profile_id, version_id
         );
 
-        Self::get_by_mod(&lua_module)
+        Ok(Self::get_by_mod(&lua_module)?)
     }
 
-    pub fn get_by_mod(lua_module: &str) -> Result<Profile> {
+    pub fn get_by_mod(lua_module: &str) -> Result<Profile, Error> {
         info!(profile_mod = %lua_module, "loading profile information");
 
         let lua = lua::get()?;
@@ -90,13 +93,13 @@ impl Profile {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Component {
     pub name: String,
     pub component: ComponentType,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum ComponentType {
     #[serde(rename = "sensor")]
     Sensor(SensorType),
@@ -106,7 +109,7 @@ pub enum ComponentType {
     Switch(SwitchType),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum SensorType {
     #[serde(rename = "None")]
     None,
@@ -114,46 +117,46 @@ pub enum SensorType {
     Temperature(TemperatureProperties),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TrackerType {
     pub source_type: LocationSourceType,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TemperatureProperties {
     pub unit: TemperatureUnit,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum TemperatureUnit {
     C,
     F,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum LocationSourceType {
     #[serde(rename = "WIFI")]
     Wifi,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SwitchType {
     pub default: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Configuration {
     pub name: String,
     pub configuration: ConfigurationType,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub enum ConfigurationType {
     #[serde(rename = "interval")]
     Interval(IntervalConfig),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct IntervalConfig {
     pub unit: String,
     pub default: usize,

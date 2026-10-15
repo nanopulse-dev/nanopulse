@@ -7,6 +7,7 @@ use utoipa::IntoParams;
 use nanopulse::keypair::get_short_id;
 
 use super::{ApiError, ListRequest, ListResponse};
+use crate::profile;
 use crate::storage::{device, workspace};
 
 #[derive(Deserialize, IntoParams)]
@@ -161,4 +162,26 @@ pub async fn device_delete(
     let d = device::get_by_name(&path.device_name).await?;
     device::delete(d.id).await?;
     Ok(StatusCode::OK)
+}
+
+/// Get device profile.
+#[utoipa::path(
+    method(get),
+    tag = "devices",
+    path = "/api/workspaces/{workspace_name}/devices/{device_name}/profile",
+    params (
+        DeviceParams,
+    ),
+    responses(
+        (status = OK, description = "Success", body = profile::Profile),
+        (status = 400, description = "Invalid parameters", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
+pub async fn device_profile(
+    path: axum::extract::Path<DeviceParams>,
+) -> Result<Json<profile::Profile>, (StatusCode, Json<ApiError>)> {
+    let d = device::get_by_name(&path.device_name).await?;
+    let p = profile::Profile::get_by_mod(&d.lua_profile_module())?;
+    Ok(Json(p))
 }

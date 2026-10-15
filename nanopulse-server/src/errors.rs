@@ -41,6 +41,9 @@ pub enum Error {
 
     #[error(transparent)]
     Validation(#[from] validator::ValidationErrors),
+
+    #[error(transparent)]
+    Lua(#[from] mlua::Error),
 }
 
 impl Error {

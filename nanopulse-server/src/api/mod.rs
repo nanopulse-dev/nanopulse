@@ -91,6 +91,7 @@ pub async fn setup() -> Result<()> {
         .routes(routes!(device::device_update))
         .routes(routes!(device::device_delete))
         .routes(routes!(device::device_list))
+        .routes(routes!(device::device_profile))
         .split_for_parts();
 
     let router = router.merge(SwaggerUi::new("/api").url("/apidoc/openapi.json", api));
