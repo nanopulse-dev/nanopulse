@@ -168,7 +168,11 @@ impl Flow {
         let pl = self.activation_request_payload.as_ref().unwrap();
 
         let v = profile::get_vendor(&pl.vendor_id)?;
-        let p = profile::get_profile(&pl.vendor_id, &pl.profile_id, &pl.version_id)?;
+        let p = profile::Profile::get_by_vendor_profile_version(
+            &pl.vendor_id,
+            &pl.profile_id,
+            &pl.version_id,
+        )?;
 
         self.vendor = Some(v);
         self.profile = Some(p);

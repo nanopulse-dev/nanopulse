@@ -18,6 +18,42 @@ pub struct Profile {
 }
 
 impl Profile {
+    pub fn get_by_vendor_profile_version(
+        vendor_id: &[u8; 4],
+        profile_id: &[u8; 2],
+        version_id: &[u8; 2],
+    ) -> Result<Profile> {
+        let vendor_id = hex::encode(vendor_id);
+        let profile_id = hex::encode(profile_id);
+        let version_id = hex::encode(version_id);
+
+        let lua_module = format!(
+            "vendors.{}.profiles.{}_{}",
+            vendor_id, profile_id, version_id
+        );
+
+        Self::get_by_mod(&lua_module)
+    }
+
+    pub fn get_by_mod(lua_module: &str) -> Result<Profile> {
+        info!(profile_mod = %lua_module, "loading profile information");
+
+        let lua = lua::get()?;
+        let require: Function = lua.globals().get("require")?;
+        let profile: Table = require.call(lua_module)?;
+
+        Ok(Profile {
+            name: profile.get("name")?,
+            description: profile.get("description")?,
+            telemetry_schema: lua
+                .from_value(profile.get::<Function>("telemetry_schema")?.call(())?)?,
+            state_schema: lua.from_value(profile.get::<Function>("state_schema")?.call(())?)?,
+            configuration_schema: lua
+                .from_value(profile.get::<Function>("configuration_schema")?.call(())?)?,
+            lua_module: lua_module.into(),
+        })
+    }
+
     pub fn get_lua_module(&self) -> String {
         self.lua_module.clone()
     }
@@ -125,37 +161,6 @@ pub struct IntervalConfig {
     pub max: usize,
 }
 
-pub fn get_profile(
-    vendor_id: &[u8; 4],
-    profile_id: &[u8; 2],
-    version_id: &[u8; 2],
-) -> Result<Profile> {
-    let vendor_id = hex::encode(vendor_id);
-    let profile_id = hex::encode(profile_id);
-    let version_id = hex::encode(version_id);
-
-    info!(vendor_id = %vendor_id, profile_id = %profile_id, version_id = %version_id, "Loading profile information");
-
-    let lua_module = format!(
-        "vendors.{}.profiles.{}_{}",
-        vendor_id, profile_id, version_id
-    );
-
-    let lua = lua::get()?;
-    let require: Function = lua.globals().get("require")?;
-    let profile: Table = require.call(lua_module.clone())?;
-
-    Ok(Profile {
-        name: profile.get("name")?,
-        description: profile.get("description")?,
-        telemetry_schema: lua.from_value(profile.get::<Function>("telemetry_schema")?.call(())?)?,
-        state_schema: lua.from_value(profile.get::<Function>("state_schema")?.call(())?)?,
-        configuration_schema: lua
-            .from_value(profile.get::<Function>("configuration_schema")?.call(())?)?,
-        lua_module,
-    })
-}
-
 pub async fn decode_telemetry(profile_mod: &str, pl: &[u8]) -> Result<serde_json::Value> {
     let lua = lua::get()?;
     let function = lua::get_function(&lua, profile_mod, "decode_telemetry")?;
@@ -241,7 +246,7 @@ mod test {
     #[tokio::test]
     async fn test_telemetry_schema() {
         let _guard = test::prepare().await;
-        let mut s = ComponentSchema::new();
+        let mut s: HashMap<String, Component> = HashMap::new();
         s.insert(
             "temperature".into(),
             Component {
@@ -270,30 +275,9 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_get_telemetry_schema() {
-        let _guard = test::prepare().await;
-        let schema = get_telemetry_schema("vendors.00000000.profiles.0000_0000").unwrap();
-        assert_eq!(
-            json!({
-                "temperature": {
-                    "name": "Temperature",
-                    "component": {
-                        "sensor": {
-                            "temperature": {
-                                "unit": "C"
-                            },
-                        }
-                    }
-                }
-            }),
-            serde_json::to_value(schema).unwrap(),
-        );
-    }
-
-    #[tokio::test]
     async fn test_configuration_schema() {
         let _guard = test::prepare().await;
-        let mut s = ConfigurationSchema::new();
+        let mut s: HashMap<String, Configuration> = HashMap::new();
         s.insert(
             "telemetry_interval".into(),
             Configuration {
@@ -326,9 +310,28 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_get_configuration_schema() {
+    async fn test_profile() {
         let _guard = test::prepare().await;
-        let schema = get_configuration_schema("vendors.00000000.profiles.0000_0000").unwrap();
+        let p = Profile::get_by_mod("vendors.00000000.profiles.0000_0000").unwrap();
+
+        assert_eq!("Temperature sensor", p.name);
+        assert_eq!("Sensor that reports the temperature", p.description);
+
+        assert_eq!(
+            json!({
+                "temperature": {
+                    "name": "Temperature",
+                    "component": {
+                        "sensor": {
+                            "temperature": {
+                                "unit": "C"
+                            },
+                        }
+                    }
+                }
+            }),
+            serde_json::to_value(&p.telemetry_schema).unwrap(),
+        );
 
         assert_eq!(
             json!({
@@ -344,20 +347,14 @@ mod test {
                     }
                 }
             }),
-            serde_json::to_value(schema).unwrap(),
+            serde_json::to_value(&p.configuration_schema).unwrap(),
         );
-    }
-
-    #[tokio::test]
-    async fn test_get_default_configuration() {
-        let _guard = test::prepare().await;
-        let default = get_default_configuration("vendors.00000000.profiles.0000_0000").unwrap();
 
         assert_eq!(
             json!({
                 "telemetry_interval": 30,
             }),
-            serde_json::to_value(default).unwrap(),
+            serde_json::to_value(p.get_default_configuration()).unwrap(),
         );
     }
 }
