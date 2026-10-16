@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use mlua::{Function, LuaSerdeExt, Table, Value};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -47,12 +47,28 @@ impl Profile {
 
         Ok(Profile {
             name: profile.get("name")?,
-            description: profile.get("description")?,
-            telemetry_schema: lua
-                .from_value(profile.get::<Function>("telemetry_schema")?.call(())?)?,
-            state_schema: lua.from_value(profile.get::<Function>("state_schema")?.call(())?)?,
-            configuration_schema: lua
-                .from_value(profile.get::<Function>("configuration_schema")?.call(())?)?,
+            description: profile.get("description").context("get description")?,
+            telemetry_schema: lua.from_value(
+                profile
+                    .get::<Function>("telemetry_schema")
+                    .context("get telemetry_schema")?
+                    .call(())
+                    .context("call telemetry_schema")?,
+            )?,
+            state_schema: lua.from_value(
+                profile
+                    .get::<Function>("state_schema")
+                    .context("get state_schema")?
+                    .call(())
+                    .context("call state_schema")?,
+            )?,
+            configuration_schema: lua.from_value(
+                profile
+                    .get::<Function>("configuration_schema")
+                    .context("get configuration_schema")?
+                    .call(())
+                    .context("call configuration_schema")?,
+            )?,
             lua_module: lua_module.into(),
         })
     }
@@ -125,6 +141,8 @@ pub struct TrackerType {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TemperatureProperties {
     pub unit: TemperatureUnit,
+    pub min: isize,
+    pub max: isize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -256,6 +274,8 @@ mod test {
                 name: "Temperature".into(),
                 component: ComponentType::Sensor(SensorType::Temperature(TemperatureProperties {
                     unit: TemperatureUnit::C,
+                    min: -15,
+                    max: 80,
                 })),
             },
         );
@@ -267,7 +287,9 @@ mod test {
                     "component": {
                         "sensor": {
                             "temperature": {
-                                "unit": "C"
+                                "unit": "C",
+                                "min": -15,
+                                "max": 80,
                             },
                         }
                     }
@@ -327,7 +349,9 @@ mod test {
                     "component": {
                         "sensor": {
                             "temperature": {
-                                "unit": "C"
+                                "unit": "C",
+                                "min": -15,
+                                "max": 80,
                             },
                         }
                     }

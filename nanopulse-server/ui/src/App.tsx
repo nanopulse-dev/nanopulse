@@ -8,9 +8,11 @@ import type { RouterProps } from "react-router-dom";
 import { Router, Route, Routes } from "react-router-dom";
 
 import "@mantine/core/styles.css";
+import "@mantine/charts/styles.css";
 import "@mantine/notifications/styles.css";
 import "@gfazioli/mantine-led/styles.css";
 import "@gfazioli/mantine-json-tree/styles.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 import appClasses from "./App.module.css";
 import { theme } from "./theme";

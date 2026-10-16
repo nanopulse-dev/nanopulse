@@ -10,6 +10,8 @@ function M.telemetry_schema()
 				sensor = {
 					temperature = {
 						unit = "C",
+						min = -15,
+						max = 80,
 					},
 				},
 			},

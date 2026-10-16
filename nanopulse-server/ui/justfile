@@ -1,2 +1,5 @@
 build:
   pnpm build
+
+generate-schema:
+  ./node_modules/.bin/openapi-typescript http://localhost:3030/apidoc/openapi.json -o src/storage/schema.d.ts

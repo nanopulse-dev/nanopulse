@@ -95,6 +95,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workspaces/{workspace_name}/devices/{device_name}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get device profile. */
+        get: operations["device_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workspaces/{workspace_name}/gateways": {
         parameters: {
             query?: never;
@@ -157,6 +174,24 @@ export interface components {
             /** @description Error message describing what went wrong */
             message: string;
         };
+        Component: {
+            component: components["schemas"]["ComponentType"];
+            name: string;
+        };
+        ComponentType: {
+            sensor: components["schemas"]["SensorType"];
+        } | {
+            tracker: components["schemas"]["TrackerType"];
+        } | {
+            switch: components["schemas"]["SwitchType"];
+        };
+        Configuration: {
+            configuration: components["schemas"]["ConfigurationType"];
+            name: string;
+        };
+        ConfigurationType: {
+            interval: components["schemas"]["IntervalConfig"];
+        };
         Device: {
             /**
              * Format: date-time
@@ -164,12 +199,14 @@ export interface components {
              * @default null
              */
             activation_at: string | null;
+            /** @description Device configuration (current). */
             configuration?: unknown;
-            configuration_wanted?: unknown;
+            /** @description Device configuration (desired). */
+            configuration_desired?: unknown;
             /**
              * Format: date-time
              * @description Created-at timestamp.
-             * @default 2026-07-23T10:01:50.750833617Z
+             * @default 2026-10-16T10:31:53.587977372Z
              */
             created_at: string;
             /**
@@ -183,34 +220,62 @@ export interface components {
              * @default null
              */
             key_exchange_at: string | null;
+            /** @description MAC configuration of the device (current). */
+            mac_configuration?: unknown;
+            /** @description MAC configuration of the device (desired). */
+            mac_configuration_desired?: unknown;
             /**
              * @description Name.
-             *     Valid input is a-z, A-Z, 0-9 and -, e.g. test-device-123.
+             *     Valid input is a-z, 0-9 and -, e.g. test-device-123.
              * @default
              */
             name: string;
-            /** @default 00000000 */
+            /**
+             * @description Device PIN.
+             * @default 00000000
+             */
             pin: components["schemas"]["HEX string"];
-            /** @default 0000 */
+            /**
+             * @description Profile ID.
+             * @default 0000
+             */
             profile_id: components["schemas"]["HEX string"];
-            /** @default 0000000000000000000000000000000000000000000000000000000000000000 */
+            /**
+             * @description Public key of the device.
+             * @default 0000000000000000000000000000000000000000000000000000000000000000
+             */
             public_key: components["schemas"]["HEX string"];
-            /** @default 00000000 */
+            /**
+             * @description Short ID of the device.
+             * @default 00000000
+             */
             short_id: components["schemas"]["HEX string"];
+            /** @description Device state (current). */
             state?: unknown;
-            state_wanted?: unknown;
+            /** @description Device state (desired). */
+            state_desired?: unknown;
+            /** @description Last reported telemetry. */
             telemetry?: unknown;
             /**
              * Format: date-time
              * @description Updated-at timestamp.
-             * @default 2026-07-23T10:01:50.750836382Z
+             * @default 2026-10-16T10:31:53.587983093Z
              */
             updated_at: string;
-            /** @default 00000000 */
+            /**
+             * @description Vendor ID.
+             * @default 00000000
+             */
             vendor_id: components["schemas"]["HEX string"];
-            /** @default  */
+            /**
+             * @description Vendor name.
+             * @default
+             */
             vendor_name: string;
-            /** @default 0000 */
+            /**
+             * @description Version ID.
+             * @default 0000
+             */
             version_id: components["schemas"]["HEX string"];
         };
         Gateway: {
@@ -239,7 +304,7 @@ export interface components {
             last_heartbeat_at: string | null;
             /**
              * @description Name.
-             *     Valid characters are a-z, A-Z, 0-9 and -. Example: test-gateway-123.
+             *     Valid characters are a-z, 0-9 and -. Example: test-gateway-123.
              * @default
              */
             name: string;
@@ -260,6 +325,12 @@ export interface components {
             duration_sec: number;
         };
         "HEX string": string;
+        IntervalConfig: {
+            default: number;
+            max: number;
+            min: number;
+            unit: string;
+        };
         ListResponse_Device: {
             result: {
                 /**
@@ -268,12 +339,14 @@ export interface components {
                  * @default null
                  */
                 activation_at: string | null;
+                /** @description Device configuration (current). */
                 configuration?: unknown;
-                configuration_wanted?: unknown;
+                /** @description Device configuration (desired). */
+                configuration_desired?: unknown;
                 /**
                  * Format: date-time
                  * @description Created-at timestamp.
-                 * @default 2026-07-23T10:01:50.750867591Z
+                 * @default 2026-10-16T10:31:53.588039690Z
                  */
                 created_at: string;
                 /**
@@ -287,34 +360,62 @@ export interface components {
                  * @default null
                  */
                 key_exchange_at: string | null;
+                /** @description MAC configuration of the device (current). */
+                mac_configuration?: unknown;
+                /** @description MAC configuration of the device (desired). */
+                mac_configuration_desired?: unknown;
                 /**
                  * @description Name.
-                 *     Valid input is a-z, A-Z, 0-9 and -, e.g. test-device-123.
+                 *     Valid input is a-z, 0-9 and -, e.g. test-device-123.
                  * @default
                  */
                 name: string;
-                /** @default 00000000 */
+                /**
+                 * @description Device PIN.
+                 * @default 00000000
+                 */
                 pin: components["schemas"]["HEX string"];
-                /** @default 0000 */
+                /**
+                 * @description Profile ID.
+                 * @default 0000
+                 */
                 profile_id: components["schemas"]["HEX string"];
-                /** @default 0000000000000000000000000000000000000000000000000000000000000000 */
+                /**
+                 * @description Public key of the device.
+                 * @default 0000000000000000000000000000000000000000000000000000000000000000
+                 */
                 public_key: components["schemas"]["HEX string"];
-                /** @default 00000000 */
+                /**
+                 * @description Short ID of the device.
+                 * @default 00000000
+                 */
                 short_id: components["schemas"]["HEX string"];
+                /** @description Device state (current). */
                 state?: unknown;
-                state_wanted?: unknown;
+                /** @description Device state (desired). */
+                state_desired?: unknown;
+                /** @description Last reported telemetry. */
                 telemetry?: unknown;
                 /**
                  * Format: date-time
                  * @description Updated-at timestamp.
-                 * @default 2026-07-23T10:01:50.750869224Z
+                 * @default 2026-10-16T10:31:53.588043006Z
                  */
                 updated_at: string;
-                /** @default 00000000 */
+                /**
+                 * @description Vendor ID.
+                 * @default 00000000
+                 */
                 vendor_id: components["schemas"]["HEX string"];
-                /** @default  */
+                /**
+                 * @description Vendor name.
+                 * @default
+                 */
                 vendor_name: string;
-                /** @default 0000 */
+                /**
+                 * @description Version ID.
+                 * @default 0000
+                 */
                 version_id: components["schemas"]["HEX string"];
             }[];
             total_count: number;
@@ -346,7 +447,7 @@ export interface components {
                 last_heartbeat_at: string | null;
                 /**
                  * @description Name.
-                 *     Valid characters are a-z, A-Z, 0-9 and -. Example: test-gateway-123.
+                 *     Valid characters are a-z, 0-9 and -. Example: test-gateway-123.
                  * @default
                  */
                 name: string;
@@ -388,7 +489,7 @@ export interface components {
                 description: string;
                 /**
                  * @description Name.
-                 *     Valid characters are a-z, A-Z, 0-9 and -. Example: test-workspace-123.
+                 *     Valid characters are a-z, 0-9 and -. Example: test-workspace-123.
                  * @default
                  */
                 name: string;
@@ -401,11 +502,42 @@ export interface components {
             }[];
             total_count: number;
         };
+        /** @enum {string} */
+        LocationSourceType: "WIFI";
+        Profile: {
+            configuration_schema: {
+                [key: string]: components["schemas"]["Configuration"];
+            };
+            description: string;
+            name: string;
+            state_schema: {
+                [key: string]: components["schemas"]["Component"];
+            };
+            telemetry_schema: {
+                [key: string]: components["schemas"]["Component"];
+            };
+        };
         RegionListItem: {
             /** @description Module. */
             module: string;
             /** @description Name. */
             name: string;
+        };
+        SensorType: "None" | {
+            temperature: components["schemas"]["TemperatureProperties"];
+        };
+        SwitchType: {
+            default: boolean;
+        };
+        TemperatureProperties: {
+            max: number;
+            min: number;
+            unit: components["schemas"]["TemperatureUnit"];
+        };
+        /** @enum {string} */
+        TemperatureUnit: "C" | "F";
+        TrackerType: {
+            source_type: components["schemas"]["LocationSourceType"];
         };
         Workspace: {
             /**
@@ -421,7 +553,7 @@ export interface components {
             description: string;
             /**
              * @description Name.
-             *     Valid characters are a-z, A-Z, 0-9 and -. Example: test-workspace-123.
+             *     Valid characters are a-z, 0-9 and -. Example: test-workspace-123.
              * @default
              */
             name: string;
@@ -873,6 +1005,49 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    device_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description workspace name. */
+                workspace_name: string;
+                /** @description Device name. */
+                device_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
             };
             /** @description Invalid parameters */
             400: {

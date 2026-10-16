@@ -6,7 +6,7 @@ import { Button, Tabs, Group, ActionIcon } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconRefresh } from "@tabler/icons-react";
 
-import type { Device, Workspace } from "../../storage/types";
+import type { Device, Workspace, Profile } from "../../storage/types";
 import { client } from "../../storage/client";
 import { PageHeader } from "../../components/PageHeader";
 import { Paper } from "../../components/Paper";
@@ -17,6 +17,7 @@ export function DeviceLoader(props: { workspace: Workspace }) {
   const navigate = useNavigate();
   const { deviceName } = useParams();
   const [device, setDevice] = useState<Device | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   const getDevice = useCallback(async () => {
     if (deviceName) {
@@ -34,6 +35,24 @@ export function DeviceLoader(props: { workspace: Workspace }) {
 
       if (data) {
         setDevice(data);
+      }
+
+      if (data?.activation_at) {
+        const { data } = await client.GET(
+          "/api/workspaces/{workspace_name}/devices/{device_name}/profile",
+          {
+            params: {
+              path: {
+                workspace_name: props.workspace.name,
+                device_name: deviceName,
+              },
+            },
+          },
+        );
+
+        if (data) {
+          setProfile(data);
+        }
       }
     }
   }, [props.workspace, deviceName]);
@@ -111,7 +130,11 @@ export function DeviceLoader(props: { workspace: Workspace }) {
 
           <Tabs.Panel value="dashboard">
             <Paper>
-              <DeviceDashboard workspace={props.workspace} device={device} />
+              <DeviceDashboard
+                workspace={props.workspace}
+                device={device}
+                profile={profile}
+              />
             </Paper>
           </Tabs.Panel>
           <Tabs.Panel value="config">

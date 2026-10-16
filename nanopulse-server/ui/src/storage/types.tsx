@@ -1,12 +1,14 @@
 import type { components } from "./schema";
 
 export type Workspace = components["schemas"]["Workspace"];
-
 export type Device = components["schemas"]["Device"];
-
+export type Profile = components["schemas"]["Profile"];
+export type Component = components["schemas"]["Component"];
+export type Configuration = components["schemas"]["Configuration"];
 export type Gateway = components["schemas"]["Gateway"];
-
 export type RegionListItem = components["schemas"]["RegionListItem"];
+export type TemperatureProperties =
+  components["schemas"]["TemperatureProperties"];
 
 export interface WsEvent {
   log?: Log;
