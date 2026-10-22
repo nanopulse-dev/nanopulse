@@ -22,6 +22,7 @@ pub struct Flow {
     frame_set: RxFrameSet,
     payload: key_exchange_request::KeyExchangeRequest,
     device: device::Device,
+    device_changeset: device::DeviceChangeSet,
     workspace: workspace::Workspace,
 }
 
@@ -36,6 +37,7 @@ impl Flow {
             frame_set,
             payload,
             device: Default::default(),
+            device_changeset: Default::default(),
             workspace: Default::default(),
         })
     }
@@ -62,8 +64,8 @@ impl Flow {
 
                 async {
                     self.get_key_exchange_completed().await?;
-                    self.update_device().await?;
                     self.send_key_response().await?;
+                    self.update_device().await?;
                     Ok::<(), Error>(())
                 }
                 .instrument(span)
@@ -98,19 +100,14 @@ impl Flow {
 
     async fn update_device(&mut self) -> Result<(), Error> {
         trace!("update_device fn");
-        self.device = device::update(
-            self.device.id,
-            &device::DeviceChangeSet {
-                key_exchange_at: Some(Utc::now()),
-                ..Default::default()
-            },
-        )
-        .await?;
+
+        self.device_changeset.key_exchange_at = Some(Utc::now());
+        self.device = device::update(self.device.id, &self.device_changeset).await?;
 
         Ok(())
     }
 
-    async fn send_key_response(&self) -> Result<(), Error> {
+    async fn send_key_response(&mut self) -> Result<(), Error> {
         trace!("send_key_response fn");
         let conf = config::get();
 
@@ -124,8 +121,9 @@ impl Flow {
             .get_downlink_data_rate(self.frame_set.ul_dr);
         let dl_gw = self.frame_set.get_downlink_gateway();
 
-        let resp_nonce =
-            device::get_next_counter(self.device.id, device::KEY_EXCHANGE_RESPONSE_COUNTER).await?;
+        let resp_counter = self.device.key_exchange_resp_counter;
+        self.device_changeset.key_exchange_resp_counter =
+            Some(self.device.key_exchange_resp_counter + 1);
 
         let our_secret = StaticSecret::from(conf.keypair.secret_key);
         let their_pk = PublicKey::from(self.payload.device_pub_key);
@@ -135,13 +133,13 @@ impl Flow {
             &ss,
             self.device.pin.as_ref(),
             self.payload.nonce,
-            resp_nonce,
+            resp_counter,
         );
 
         device::insert_key_exchange(
             self.device.id,
             self.payload.nonce as i64,
-            resp_nonce as i64,
+            resp_counter as i64,
             &root,
         )
         .await?;
@@ -151,7 +149,7 @@ impl Flow {
             payload: frames::Payload::KeyExchangeResponse(
                 key_exchange_response::KeyExchangeResponse {
                     server_pub_key: conf.keypair.public_key,
-                    counter: resp_nonce,
+                    counter: resp_counter,
                 },
             ),
             mic: None,

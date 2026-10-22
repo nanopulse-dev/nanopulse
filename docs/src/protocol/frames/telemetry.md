@@ -12,9 +12,9 @@ data with the Server.
 
 Bytes:
 
-| 1 byte       | 4 bytes  | 4 bytes           | N bytes             | 4 bytes |
-| ------------ | -------- | ----------------- | ------------------- | ------- |
-| Frame Header | Short ID | Telemetry Counter | Payload (encrypted) | MIC     |
+| 1 byte       | 4 bytes  | 4 bytes | N bytes             | 4 bytes |
+| ------------ | -------- | ------- | ------------------- | ------- |
+| Frame Header | Short ID | Counter | Payload (encrypted) | MIC     |
 
 ## Frame Header
 
@@ -30,7 +30,12 @@ The _Short ID_ of the device. See also [Short ID](../glossary/short-id.md).
 
 ## Counter
 
-Unique `u32` counter value. See also [Counter](../glossary/counter.md).
+Unique `u32` counter value. See also [Counter](../glossary/counter.md). Please
+note that each direction (uplink / downlink) has a separate counter, such that
+there are two counters:
+
+- Counter Up
+- Counter Down
 
 ## Telemetry Payload
 
@@ -42,9 +47,9 @@ implemented in the device-profile.
 The Telemetry Payload is encrypted before transmission using the Encryption Key
 (see below). The `IV` for the encryption key is:
 
-| 8 bytes    | 4 bytes           |
-| ---------- | ----------------- |
-| `8 x 0x00` | Telemetry Counter |
+| 8 bytes    | 4 bytes |
+| ---------- | ------- |
+| `8 x 0x00` | Counter |
 
 #### Encryption key
 

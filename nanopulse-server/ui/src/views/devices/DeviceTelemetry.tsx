@@ -45,8 +45,8 @@ export function DeviceTelemetry(props: IProps) {
 
       return (
         <Grid.Col span={{ base: 12, md: 6, lg: 4 }} key={k}>
-          <Card withBorder>
-            <Card.Section inheritPadding py="xs">
+          <Card withBorder padding={0}>
+            <Card.Section py="xs" px="md">
               <Text fw={500}>{v.name}</Text>
             </Card.Section>
             {content}
@@ -79,7 +79,7 @@ function TemperatureSensor(props: {
       </Center>
     );
   } else {
-    return <div>No data.</div>;
+    return <Card.Section>No data.</Card.Section>;
   }
 }
 
@@ -126,6 +126,6 @@ function TrackerMap(props: { value?: Location }) {
       </Card.Section>
     );
   } else {
-    return <Card.Section inheritPadding>No data.</Card.Section>;
+    return <Card.Section>No data.</Card.Section>;
   }
 }

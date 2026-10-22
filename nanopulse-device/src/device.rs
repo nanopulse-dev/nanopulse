@@ -261,8 +261,8 @@ impl<
         }
 
         info!("starting telemetry");
-        let telemetry_count = self.session.telemetry_up;
-        self.session.telemetry_up += 1;
+        let counter_up = self.session.counter_up;
+        self.session.counter_up += 1;
 
         let tx_ch = self.get_random_tx_channel();
         let enc_key =
@@ -281,7 +281,7 @@ impl<
         let mut pl = Frame {
             payload: Payload::Telemetry(telemetry::Telemetry {
                 short_id: self.root_security.short_id,
-                counter: telemetry_count,
+                counter: counter_up,
                 payload: Vec::try_from(pl).map_err(|_| Error::HeaplessVec)?,
             }),
             mic: None,
@@ -325,8 +325,8 @@ impl<
         }
 
         info!("starting state");
-        let state_counter = self.session.state_up;
-        self.session.state_up += 1;
+        let counter_up = self.session.counter_up;
+        self.session.counter_up += 1;
 
         let tx_ch = self.get_random_tx_channel();
         let enc_key =
@@ -346,7 +346,7 @@ impl<
             payload: Payload::State(state::State {
                 is_downlink: false,
                 short_id: self.root_security.short_id,
-                counter: state_counter,
+                counter: counter_up,
                 payload: Vec::try_from(pl).map_err(|_| Error::HeaplessVec)?,
             }),
             mic: None,
@@ -553,8 +553,8 @@ impl<
 
                 let counter_ok = match &resp.payload {
                     Payload::State(pl) => {
-                        if pl.counter >= self.session.state_down {
-                            self.session.state_down = pl.counter + 1;
+                        if pl.counter >= self.session.counter_down {
+                            self.session.counter_down = pl.counter + 1;
                             true
                         } else {
                             error!("invalid State counter");

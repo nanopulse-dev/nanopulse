@@ -18,8 +18,8 @@ pub struct Flow {
     frame_set: RxFrameSet,
     payload: activation_request::ActivationRequest,
     device: device::Device,
+    device_changeset: device::DeviceChangeSet,
     workspace: workspace::Workspace,
-    activation_response_counter: u32,
     activation_request_payload: Option<activation_request::ProfileInfoPlain>,
     vendor: Option<profile::Vendor>,
     profile: Option<profile::Profile>,
@@ -36,8 +36,8 @@ impl Flow {
             frame_set,
             payload,
             device: Default::default(),
+            device_changeset: Default::default(),
             workspace: Default::default(),
-            activation_response_counter: 0,
             activation_request_payload: None,
             vendor: None,
             profile: None,
@@ -66,9 +66,10 @@ impl Flow {
         async {
             self.decrypt_payload().await?;
             self.get_profile().await?;
-            self.update_device().await?;
+            self.compute_session_root_key();
             self.send_activation_response().await?;
             self.send_activation_event().await?;
+            self.update_device().await?;
             Ok(())
         }
         .instrument(span)
@@ -109,27 +110,21 @@ impl Flow {
                 if self.frame_set.frame.validate_mic(&mic_key)? {
                     info!(id = device.id, "found matching device");
 
-                    if device.root_key.is_empty() {
-                        info!("finalizing key exchange by setting root_key");
-                        device.root_key = *root_key;
-                        self.device = device.clone();
-                        device::update(
-                            device.id,
-                            &device::DeviceChangeSet {
-                                root_key: Some(*root_key),
-                                ..Default::default()
-                            },
-                        )
-                        .await?;
-                    }
-
-                    device::sync_counter(
+                    // This validates that the counter has incremented + immediately updates the
+                    // row with the new counter to avoid concurrency issues. Other updates happen
+                    // through the device_changeset.
+                    self.device = device::sync_counter(
                         device.id,
-                        device::ACTIVATION_REQUEST_COUNTER,
-                        self.payload.counter,
+                        device::Counter::ActivationRequestCounter(self.payload.counter),
                     )
                     .await?;
-                    self.device = device.clone();
+
+                    if device.root_key.is_empty() {
+                        info!("finalizing key exchange by setting root_key");
+                        self.device.root_key = *root_key;
+                        self.device_changeset.root_key = Some(*root_key);
+                    }
+
                     return Ok(());
                 }
             }
@@ -180,48 +175,43 @@ impl Flow {
         Ok(())
     }
 
+    fn compute_session_root_key(&mut self) {
+        trace!("compute_session_root_key fn");
+
+        self.device.session_root_key = keys::get_session_root_key(
+            self.device.root_key.as_ref(),
+            self.payload.counter,
+            self.device.activation_resp_counter,
+        )
+        .into();
+        self.device_changeset.session_root_key = Some(self.device.session_root_key);
+    }
+
     async fn update_device(&mut self) -> Result<(), Error> {
         trace!("update_device fn");
         let pl = self.activation_request_payload.as_ref().unwrap();
         let v = self.vendor.as_ref().unwrap();
         let p = self.profile.as_ref().unwrap();
 
-        self.activation_response_counter =
-            device::get_next_counter(self.device.id, device::ACTIVATION_RESPONSE_COUNTER).await?;
-
-        let sess_root_key = keys::get_session_root_key(
-            self.device.root_key.as_ref(),
-            self.payload.counter,
-            self.activation_response_counter,
-        );
-
-        let mut cs = device::DeviceChangeSet {
-            activation_at: Some(Utc::now()),
-            session_root_key: Some(sess_root_key.into()),
-            vendor_id: Some(pl.vendor_id.into()),
-            profile_id: Some(pl.profile_id.into()),
-            version_id: Some(pl.version_id.into()),
-            vendor_name: Some(v.name.clone()),
-            counters: Some(device::Counters {
-                key_exchange_response: self.device.counters.key_exchange_response,
-                activation_request: self.payload.counter + 1,
-                activation_response: self.activation_response_counter + 1,
-                ..Default::default()
-            }),
-            state: Some(p.get_default_state()),
-            configuration: Some(p.get_default_configuration()),
-            ..Default::default()
-        };
+        self.device_changeset.activation_at = Some(Utc::now());
+        self.device_changeset.vendor_id = Some(pl.vendor_id.into());
+        self.device_changeset.profile_id = Some(pl.profile_id.into());
+        self.device_changeset.version_id = Some(pl.version_id.into());
+        self.device_changeset.vendor_name = Some(v.name.clone());
+        self.device_changeset.counter_up = Some(0);
+        self.device_changeset.counter_down = Some(0);
+        self.device_changeset.state = Some(p.get_default_state());
+        self.device_changeset.configuration = Some(p.get_default_configuration());
 
         if self.device.name.is_empty() {
-            cs.name = Some(p.name.clone());
+            self.device_changeset.name = Some(p.name.clone());
         }
 
         if self.device.description.is_empty() {
-            cs.description = Some(p.description.clone());
+            self.device_changeset.description = Some(p.description.clone());
         }
 
-        self.device = device::update(self.device.id, &cs).await?;
+        self.device = device::update(self.device.id, &self.device_changeset).await?;
 
         Ok(())
     }
@@ -259,9 +249,13 @@ impl Flow {
             .cloned()
             .unwrap_or_default();
 
+        let activation_response_counter = self.device.activation_resp_counter;
+        self.device_changeset.activation_resp_counter =
+            Some(self.device.activation_resp_counter + 1);
+
         let mut pl = frames::Frame {
             payload: frames::Payload::ActivationResponse(activation_response::ActivationResponse {
-                counter: self.activation_response_counter,
+                counter: activation_response_counter,
                 network_info: activation_response::NetworkInfo::Plain(
                     activation_response::NetworkInfoPlain {
                         channel_plan_id: network_defaults.channel_plan_id,

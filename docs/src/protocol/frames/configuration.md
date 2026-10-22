@@ -8,9 +8,9 @@ configuration change.
 
 Bytes:
 
-| 1 byte       | 4 bytes  | 4 bytes               | N bytes             | 4 bytes |
-| ------------ | -------- | --------------------- | ------------------- | ------- |
-| Frame Header | Short ID | Configuration Counter | Payload (encrypted) | MIC     |
+| 1 byte       | 4 bytes  | 4 bytes | N bytes             | 4 bytes |
+| ------------ | -------- | ------- | ------------------- | ------- |
+| Frame Header | Short ID | Counter | Payload (encrypted) | MIC     |
 
 ## Frame Header
 
@@ -31,11 +31,10 @@ The _Short ID_ of the device. See also [Short ID](../glossary/short-id.md).
 ## Counter
 
 Unique `u32` counter value. See also [Counter](../glossary/counter.md). Please
-note that each direction (uplink / downlink) has a separate counter, such that
-there are two counters:
+note that each direction (uplink / downlink) has a separate counter, such that:
 
-- Configuration Counter Up
-- Configuration Counter Down
+- Counter Up
+- Counter Down
 
 ## Configuration Payload
 
@@ -47,9 +46,9 @@ implemented in the device-profile.
 The Configuration Payload is encrypted before transmission using the Encryption
 Key (see below). The `IV` for the encryption key is:
 
-| 8 bytes    | 4 bytes               |
-| ---------- | --------------------- |
-| `8 x 0x00` | Configuration Counter |
+| 8 bytes    | 4 bytes |
+| ---------- | ------- |
+| `8 x 0x00` | Counter |
 
 #### Encryption Key
 

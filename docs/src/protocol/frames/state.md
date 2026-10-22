@@ -7,9 +7,9 @@ with a _State_ frame with a copy of the state change.
 
 Bytes:
 
-| 1 byte       | 4 bytes  | 4 bytes       | N bytes             | 4 bytes |
-| ------------ | -------- | ------------- | ------------------- | ------- |
-| Frame Header | Short ID | State Counter | Payload (encrypted) | MIC     |
+| 1 byte       | 4 bytes  | 4 bytes | N bytes             | 4 bytes |
+| ------------ | -------- | ------- | ------------------- | ------- |
+| Frame Header | Short ID | Counter | Payload (encrypted) | MIC     |
 
 ## Frame Header
 
@@ -33,8 +33,8 @@ Unique `u32` counter value. See also [Counter](../glossary/counter.md). Please
 note that each direction (uplink / downlink) has a separate counter, such that
 there are two counters:
 
-- State Counter Up
-- State Counter Down
+- Counter Up
+- Counter Down
 
 ## State Payload
 
@@ -46,9 +46,9 @@ in the device-profile.
 The State Payload is encrypted before transmission using the Encryption Key (see
 below). The `IV` for the encryption key is:
 
-| 8 bytes    | 4 bytes       |
-| ---------- | ------------- |
-| `8 x 0x00` | State Counter |
+| 8 bytes    | 4 bytes |
+| ---------- | ------- |
+| `8 x 0x00` | Counter |
 
 #### Encryption Key
 

@@ -1,25 +1,17 @@
+use std::fmt::Display;
+
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sea_query::{Asterisk, Expr, ExprTrait, Func, Order, Query, SqliteQueryBuilder, enum_def};
+use sea_query::{Asterisk, Expr, ExprTrait, Order, Query, SqliteQueryBuilder, enum_def};
 use sea_query_sqlx::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use sqlx::types::Json;
-use tracing::info;
+use tracing::{info, warn};
 use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::errors::Error;
 use crate::storage::{NAME_REGEX, fields, get_conn, json_value};
-
-pub const KEY_EXCHANGE_RESPONSE_COUNTER: &str = "key_xs_resp";
-pub const ACTIVATION_REQUEST_COUNTER: &str = "act_req";
-pub const ACTIVATION_RESPONSE_COUNTER: &str = "act_resp";
-pub const TELEMETRY_UP_COUNTER: &str = "telem_up";
-pub const STATE_UP_COUNTER: &str = "state_up";
-pub const STATE_DOWN_COUNTER: &str = "state_down";
-pub const CONFIG_UP_COUNTER: &str = "config_up";
-pub const CONFIG_DOWN_COUNTER: &str = "config_down";
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, FromRow, Validate, PartialEq, Eq)]
 #[enum_def]
@@ -100,7 +92,29 @@ pub struct Device {
     pub session_root_key: fields::HexArray<32>,
 
     #[serde(skip)]
-    pub counters: Json<Counters>,
+    pub key_exchange_resp_counter: u32,
+    #[serde(skip)]
+    pub activation_req_counter: u32,
+    #[serde(skip)]
+    pub activation_resp_counter: u32,
+    #[serde(skip)]
+    pub counter_up: u32,
+    #[serde(skip)]
+    pub counter_down: u32,
+}
+
+pub enum Counter {
+    ActivationRequestCounter(u32),
+    CounterUp(u32),
+}
+
+impl Display for Counter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Counter::ActivationRequestCounter(v) => write!(f, "activation_req_counter: {}", v),
+            Counter::CounterUp(v) => write!(f, "counter_up: {}", v),
+        }
+    }
 }
 
 impl Device {
@@ -122,7 +136,7 @@ impl Device {
             None => return false,
         };
 
-        state_desired.iter().all(|(k, v)| state.get(k) == Some(v))
+        !state_desired.iter().all(|(k, v)| state.get(k) == Some(v))
     }
 
     pub fn needs_configuration_sync(&self) -> bool {
@@ -136,7 +150,7 @@ impl Device {
             None => return false,
         };
 
-        configuration_desired
+        !configuration_desired
             .iter()
             .all(|(k, v)| configuration.get(k) == Some(v))
     }
@@ -171,7 +185,11 @@ impl Default for Device {
             mac_configuration_desired: serde_json::Value::default(),
             root_key: fields::HexArray::default(),
             session_root_key: fields::HexArray::default(),
-            counters: Json(Counters::default()),
+            key_exchange_resp_counter: 0,
+            activation_req_counter: 0,
+            activation_resp_counter: 0,
+            counter_up: 0,
+            counter_down: 0,
         }
     }
 }
@@ -190,20 +208,15 @@ pub struct DeviceChangeSet {
     pub version_id: Option<fields::HexArray<2>>,
     pub vendor_name: Option<String>,
     pub telemetry: Option<serde_json::Value>,
-    pub counters: Option<Counters>,
     pub state: Option<serde_json::Value>,
     pub state_desired: Option<serde_json::Value>,
     pub configuration: Option<serde_json::Value>,
     pub configuration_desired: Option<serde_json::Value>,
-}
-
-#[derive(Default, Debug, Deserialize, Clone, Serialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct Counters {
-    pub key_exchange_response: u32,
-    pub activation_request: u32,
-    pub activation_response: u32,
-    pub telemetry_up: u32,
+    pub key_exchange_resp_counter: Option<u32>,
+    pub activation_req_counter: Option<u32>,
+    pub activation_resp_counter: Option<u32>,
+    pub counter_up: Option<u32>,
+    pub counter_down: Option<u32>,
 }
 
 #[derive(Debug, FromRow)]
@@ -286,6 +299,11 @@ pub async fn create(d: Device) -> Result<Device, Error> {
             DeviceIden::Pin,
             DeviceIden::Description,
             DeviceIden::VendorName,
+            DeviceIden::KeyExchangeRespCounter,
+            DeviceIden::ActivationReqCounter,
+            DeviceIden::ActivationRespCounter,
+            DeviceIden::CounterUp,
+            DeviceIden::CounterDown,
         ])
         .values_panic([
             d.workspace_id.into(),
@@ -297,6 +315,11 @@ pub async fn create(d: Device) -> Result<Device, Error> {
             d.pin.as_vec().into(),
             d.description.into(),
             d.vendor_name.into(),
+            d.key_exchange_resp_counter.into(),
+            d.activation_req_counter.into(),
+            d.activation_resp_counter.into(),
+            d.counter_up.into(),
+            d.counter_down.into(),
         ])
         .returning(Query::returning().all())
         .build_sqlx(SqliteQueryBuilder);
@@ -350,12 +373,6 @@ pub async fn update(id: i64, changes: &DeviceChangeSet) -> Result<Device, Error>
     if let Some(v) = &changes.telemetry {
         values.push((DeviceIden::Telemetry, json_value(v).into()));
     }
-    if let Some(v) = &changes.counters {
-        values.push((
-            DeviceIden::Counters,
-            json_value(&serde_json::to_value(v).unwrap()).into(),
-        ));
-    }
     if let Some(v) = &changes.state {
         values.push((DeviceIden::State, json_value(v).into()));
     }
@@ -367,6 +384,21 @@ pub async fn update(id: i64, changes: &DeviceChangeSet) -> Result<Device, Error>
     }
     if let Some(v) = &changes.configuration_desired {
         values.push((DeviceIden::ConfigurationDesired, json_value(v).into()));
+    }
+    if let Some(v) = &changes.key_exchange_resp_counter {
+        values.push((DeviceIden::KeyExchangeRespCounter, v.into()));
+    }
+    if let Some(v) = &changes.activation_req_counter {
+        values.push((DeviceIden::ActivationReqCounter, v.into()));
+    }
+    if let Some(v) = &changes.activation_resp_counter {
+        values.push((DeviceIden::ActivationRespCounter, v.into()));
+    }
+    if let Some(v) = &changes.counter_up {
+        values.push((DeviceIden::CounterUp, v.into()));
+    }
+    if let Some(v) = &changes.counter_down {
+        values.push((DeviceIden::CounterDown, v.into()));
     }
 
     if values.is_empty() {
@@ -422,67 +454,50 @@ pub async fn get_count(workspace_id: i64) -> Result<i64, Error> {
     Ok(row.0)
 }
 
-pub async fn sync_counter(id: i64, counter_name: &str, counter: u32) -> Result<(), Error> {
-    info!(counter_name = %counter_name, value = counter, "syncing counter");
-    let key_path = format!("$.{}", counter_name);
-    let current = Func::cust("json_extract")
-        .args([Expr::col(DeviceIden::Counters), key_path.as_str().into()]);
-    let coalesced = Func::cust("coalesce").args([current.into(), 0.into()]);
-
-    let set = Func::cust("json_set").args([
-        Expr::col(DeviceIden::Counters),
-        key_path.as_str().into(),
-        (counter + 1).into(),
-    ]);
-
-    let (sql, values) = Query::update()
+pub async fn sync_counter(id: i64, counter: Counter) -> Result<Device, Error> {
+    let mut q = Query::update()
         .table(DeviceIden::Table)
-        .values([(DeviceIden::Counters, set.into())])
         .and_where(Expr::col(DeviceIden::Id).eq(id))
-        .and_where(coalesced.lte(counter))
+        .to_owned();
+
+    match counter {
+        Counter::ActivationRequestCounter(v) => {
+            q = q
+                .value(DeviceIden::ActivationReqCounter, v + 1)
+                .and_where(Expr::col(DeviceIden::ActivationReqCounter).lte(v))
+                .to_owned();
+        }
+        Counter::CounterUp(v) => {
+            q = q
+                .value(DeviceIden::CounterUp, v + 1)
+                .and_where(Expr::col(DeviceIden::CounterUp).lte(v))
+                .to_owned();
+        }
+    }
+
+    let (sql, values) = q
         .returning(Query::returning().all())
         .build_sqlx(SqliteQueryBuilder);
 
     let d: Device = sqlx::query_as_with(sqlx::AssertSqlSafe(sql.as_str()), values)
         .fetch_one(&mut *get_conn().await?)
         .await
-        .map_err(Error::from_sqlx)?;
+        .map_err(Error::from_sqlx)
+        .map_err(|e| {
+            if let Error::NotFound = e {
+                warn!(counter = %counter, "counter value is invalid");
+            }
 
-    info!(device_name = d.name, counter_name = %counter_name, counter_value = counter, "counter synchronized");
+            e
+        })?;
 
-    Ok(())
-}
+    info!(
+        device_name = d.name,
+        counter = %counter,
+        "synchronized counter"
+    );
 
-pub async fn get_next_counter(id: i64, counter_name: &str) -> Result<u32, Error> {
-    let key_path = format!("$.{}", counter_name);
-    let current = Func::cust("json_extract")
-        .args([Expr::col(DeviceIden::Counters), key_path.as_str().into()]);
-    let coalesced = Func::cust("coalesce").args([current.into(), 0.into()]);
-    let incremented = Expr::expr(coalesced).add(1);
-    let json_set = Func::cust("json_set").args([
-        Expr::col(DeviceIden::Counters),
-        key_path.as_str().into(),
-        incremented,
-    ]);
-    let returning_exp = Func::cust("json_extract")
-        .args([Expr::col(DeviceIden::Counters), key_path.as_str().into()]);
-
-    let (sql, values) = Query::update()
-        .table(DeviceIden::Table)
-        .values([(DeviceIden::Counters, Expr::expr(json_set))])
-        .and_where(Expr::col(DeviceIden::Id).eq(id))
-        .returning(Query::returning().expr(Expr::expr(returning_exp)))
-        .build_sqlx(SqliteQueryBuilder);
-
-    let row: (i64,) = sqlx::query_as_with(sqlx::AssertSqlSafe(sql.as_str()), values)
-        .fetch_one(&mut *get_conn().await?)
-        .await
-        .map_err(Error::from_sqlx)?;
-
-    let counter: u32 = row.0.try_into()?;
-
-    // this way we get 0, 1, ...
-    Ok(counter - 1)
+    Ok(d)
 }
 
 pub async fn list(workspace_id: i64, limit: i64, offset: i64) -> Result<Vec<Device>, Error> {
@@ -615,13 +630,9 @@ mod test {
         let d_get = get(d.id).await.unwrap();
         assert_eq!("Updated description", &d_get.description);
 
-        assert!(sync_counter(d.id, STATE_UP_COUNTER, 0).await.is_ok());
-        assert!(sync_counter(d.id, STATE_UP_COUNTER, 1).await.is_ok());
-        assert!(sync_counter(d.id, STATE_UP_COUNTER, 1).await.is_err());
-
-        assert_eq!(0, get_next_counter(d.id, STATE_DOWN_COUNTER).await.unwrap());
-        assert_eq!(1, get_next_counter(d.id, STATE_DOWN_COUNTER).await.unwrap());
-        assert_eq!(2, get_next_counter(d.id, STATE_DOWN_COUNTER).await.unwrap());
+        assert!(sync_counter(d.id, Counter::CounterUp(0)).await.is_ok());
+        assert!(sync_counter(d.id, Counter::CounterUp(1)).await.is_ok());
+        assert!(sync_counter(d.id, Counter::CounterUp(1)).await.is_err());
 
         insert_key_exchange(d.id, 1, 2, &[0u8; 32]).await.unwrap();
         insert_key_exchange(d.id, 2, 3, &[0u8; 32]).await.unwrap();

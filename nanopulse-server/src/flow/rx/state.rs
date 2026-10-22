@@ -90,9 +90,15 @@ impl Flow {
             if self.frame_set.frame.validate_mic(&mic_key)? {
                 info!(id = device.id, "found matching device");
 
-                device::sync_counter(device.id, device::STATE_UP_COUNTER, self.payload.counter)
-                    .await?;
-                self.device = device.clone();
+                // This validates that the counter has incremented + immediately updates the
+                // row with the new counter to avoid concurrency issues. Other updates happen
+                // through the device_changeset.
+                self.device = device::sync_counter(
+                    device.id,
+                    device::Counter::CounterUp(self.payload.counter),
+                )
+                .await?;
+
                 return Ok(());
             }
         }

@@ -47,7 +47,11 @@ create table device (
   mac_configuration_desired not null default '{}',
   root_key blob not null default x'',
   session_root_key blob not null default x'',
-  counters text not null default '{}'
+  key_exchange_resp_counter integer not null,
+  activation_req_counter integer not null,
+  activation_resp_counter integer not null,
+  counter_up integer not null,
+  counter_down integer not null
 );
 
 create index idx_device_short_id on device (short_id);

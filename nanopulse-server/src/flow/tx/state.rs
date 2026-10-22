@@ -18,9 +18,9 @@ use crate::storage::{device, workspace};
 pub struct Flow {
     frame_set: RxFrameSet,
     device: device::Device,
+    device_changeset: device::DeviceChangeSet,
     workspace: workspace::Workspace,
     payload: Vec<u8>,
-    state_down_counter: u32,
 }
 
 impl Flow {
@@ -34,7 +34,7 @@ impl Flow {
             device,
             workspace,
             payload: vec![],
-            state_down_counter: 0,
+            device_changeset: Default::default(),
         }
     }
 
@@ -45,8 +45,8 @@ impl Flow {
 
     async fn _handle_response(&mut self) -> Result<(), Error> {
         self.get_diff_payload().await?;
-        self.update_device().await?;
         self.send_state().await?;
+        self.update_device().await?;
         Ok(())
     }
 
@@ -68,13 +68,12 @@ impl Flow {
     async fn update_device(&mut self) -> Result<(), Error> {
         trace!("update_device fn");
 
-        self.state_down_counter =
-            device::get_next_counter(self.device.id, device::STATE_DOWN_COUNTER).await?;
+        self.device = device::update(self.device.id, &self.device_changeset).await?;
 
         Ok(())
     }
 
-    async fn send_state(&self) -> Result<(), Error> {
+    async fn send_state(&mut self) -> Result<(), Error> {
         trace!("send_state fn");
 
         let dl_ch = self
@@ -99,11 +98,14 @@ impl Flow {
             dl_dr,
         );
 
+        let counter_down = self.device.counter_down;
+        self.device_changeset.counter_down = Some(self.device.counter_down + 1);
+
         let mut pl = frames::Frame {
             payload: frames::Payload::State(state::State {
                 is_downlink: true,
                 short_id: self.device.short_id.into(),
-                counter: self.state_down_counter,
+                counter: counter_down,
                 payload: self.payload.as_slice().try_into()?,
             }),
             mic: None,

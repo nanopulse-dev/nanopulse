@@ -20,9 +20,8 @@ unsafe extern "C" {
 #[derive(Default)]
 pub struct Session {
     pub session_root_key: [u8; 32],
-    pub telemetry_up: u32,
-    pub state_up: u32,
-    pub state_down: u32,
+    pub counter_up: u32,
+    pub counter_down: u32,
     pub channel_plan_id: u8,
     pub rx_window_delay: u8,
     pub dr_offset: u8,
