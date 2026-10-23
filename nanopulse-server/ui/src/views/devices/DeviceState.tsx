@@ -34,10 +34,10 @@ export function DeviceState(props: IProps) {
 
 function SwitchToggle(props: { name: string; value?: boolean }) {
   if (props.value === undefined) {
-    return <div>No data.</div>;
+    return <Card.Section py="md">No data.</Card.Section>;
   } else {
     return (
-      <Center>
+      <Center py="md">
         <Switch checked={props.value} readOnly label={`${props.name} switch`} />
       </Center>
     );

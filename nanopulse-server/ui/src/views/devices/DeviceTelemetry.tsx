@@ -65,7 +65,7 @@ function TemperatureSensor(props: {
 }) {
   if (props.value) {
     return (
-      <Center>
+      <Center py="xs">
         <GaugeChart
           value={props.value}
           min={props.properties.min}
@@ -79,7 +79,7 @@ function TemperatureSensor(props: {
       </Center>
     );
   } else {
-    return <Card.Section>No data.</Card.Section>;
+    return <Card.Section py="xs">No data.</Card.Section>;
   }
 }
 
