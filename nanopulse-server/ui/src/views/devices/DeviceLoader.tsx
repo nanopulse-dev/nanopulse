@@ -7,7 +7,7 @@ import { notifications } from "@mantine/notifications";
 import { IconRefresh } from "@tabler/icons-react";
 
 import type { Device, Workspace, Profile } from "../../storage/types";
-import { client } from "../../storage/client";
+import { client, clientEvents } from "../../storage/client";
 import { PageHeader } from "../../components/PageHeader";
 import { Paper } from "../../components/Paper";
 import { UpdateDevice } from "./UpdateDevice";
@@ -60,6 +60,17 @@ export function DeviceLoader(props: { workspace: Workspace }) {
   useEffect(() => {
     getDevice();
   }, [getDevice]);
+
+  useEffect(() => {
+    if (device) {
+      const event = `PATCH:/api/workspaces/${props.workspace.name}/devices/${device.name}/state`;
+      clientEvents.on(event, getDevice);
+
+      return () => {
+        clientEvents.removeListener(event, getDevice);
+      };
+    }
+  }, [getDevice, device]);
 
   const deleteDevice = async () => {
     if (

@@ -6,6 +6,7 @@ import Map, {
   Layer,
   NavigationControl,
   FullscreenControl,
+  AttributionControl,
 } from "react-map-gl/maplibre";
 import circle from "@turf/circle";
 
@@ -101,7 +102,9 @@ function TrackerMap(props: { value?: Location }) {
           }}
           style={{ width: "100%", height: 350 }}
           mapStyle="https://tiles.openfreemap.org/styles/positron"
+          attributionControl={false}
         >
+          <AttributionControl compact={false} />
           <NavigationControl />
           <FullscreenControl />
           <Source id="accuracy-circle" type="geojson" data={circleData}>

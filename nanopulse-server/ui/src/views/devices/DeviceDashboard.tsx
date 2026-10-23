@@ -19,9 +19,18 @@ export function DeviceDashboard(props: IProps) {
   if (props.profile) {
     let t = props.device.telemetry as Map<string, any> | undefined;
     let s = props.device.state as Map<string, any> | undefined;
+    let sd = props.device.state_desired as Map<string, any> | undefined;
 
     telemetry = <DeviceTelemetry profile={props.profile} telemetry={t} />;
-    state = <DeviceState profile={props.profile} state={s} />;
+    state = (
+      <DeviceState
+        workspace={props.workspace}
+        device={props.device}
+        profile={props.profile}
+        state={s}
+        state_desired={sd}
+      />
+    );
   }
 
   return (

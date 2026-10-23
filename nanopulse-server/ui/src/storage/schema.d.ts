@@ -112,6 +112,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workspaces/{workspace_name}/devices/{device_name}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set device state. */
+        patch: operations["set_device_state"];
+        trace?: never;
+    };
     "/api/workspaces/{workspace_name}/gateways": {
         parameters: {
             query?: never;
@@ -206,7 +223,7 @@ export interface components {
             /**
              * Format: date-time
              * @description Created-at timestamp.
-             * @default 2026-10-23T09:47:28.410987765Z
+             * @default 2026-10-23T12:26:13.675789686Z
              */
             created_at: string;
             /**
@@ -265,7 +282,7 @@ export interface components {
             /**
              * Format: date-time
              * @description Updated-at timestamp.
-             * @default 2026-10-23T09:47:28.410990370Z
+             * @default 2026-10-23T12:26:13.675792281Z
              */
             updated_at: string;
             /**
@@ -352,7 +369,7 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description Created-at timestamp.
-                 * @default 2026-10-23T09:47:28.411020167Z
+                 * @default 2026-10-23T12:26:13.675824494Z
                  */
                 created_at: string;
                 /**
@@ -411,7 +428,7 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description Updated-at timestamp.
-                 * @default 2026-10-23T09:47:28.411021810Z
+                 * @default 2026-10-23T12:26:13.675826198Z
                  */
                 updated_at: string;
                 /**
@@ -1060,6 +1077,51 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Profile"];
                 };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    set_device_state: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description workspace name. */
+                workspace_name: string;
+                /** @description Device name. */
+                device_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": unknown;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Invalid parameters */
             400: {

@@ -1,15 +1,12 @@
 use anyhow::Result;
-use tracing::error;
 
+use crate::errors::Error;
 use crate::storage::device;
 
-pub async fn set_device_state_desired(device_name: String, state: serde_json::Value) {
-    if let Err(e) = _set_device_state_desired(device_name, state).await {
-        error!(error = %e, "set device state error");
-    }
-}
-
-async fn _set_device_state_desired(device_name: String, state: serde_json::Value) -> Result<()> {
+pub async fn set_device_state_desired(
+    device_name: &str,
+    state: serde_json::Value,
+) -> Result<(), Error> {
     let mut d = device::get_by_name(&device_name).await?;
     json_patch::merge(&mut d.state_desired, &state);
     let c = device::DeviceChangeSet {

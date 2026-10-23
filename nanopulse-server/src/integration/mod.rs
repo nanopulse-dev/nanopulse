@@ -13,7 +13,7 @@ use crate::config;
 use crate::profile::Component;
 use crate::storage::{device, workspace};
 
-mod handlers;
+pub mod handlers;
 mod home_assistant;
 pub mod internal;
 

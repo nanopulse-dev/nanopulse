@@ -7,6 +7,7 @@ use utoipa::IntoParams;
 use nanopulse::keypair::get_short_id;
 
 use super::{ApiError, ListRequest, ListResponse};
+use crate::integration::handlers::set_device_state_desired;
 use crate::profile;
 use crate::storage::{device, workspace};
 
@@ -184,4 +185,27 @@ pub async fn device_profile(
     let d = device::get_by_name(&path.device_name).await?;
     let p = profile::Profile::get_by_mod(&d.lua_profile_module())?;
     Ok(Json(p))
+}
+
+/// Set device state.
+#[utoipa::path(
+    method(patch),
+    tag = "devices",
+    path = "/api/workspaces/{workspace_name}/devices/{device_name}/state",
+    params (
+        DeviceParams,
+    ),
+    request_body = serde_json::Value,
+    responses(
+        (status = OK, description = "Success"),
+        (status = 400, description = "Invalid parameters", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
+pub async fn set_device_state(
+    path: axum::extract::Path<DeviceParams>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
+    set_device_state_desired(&path.device_name, body).await?;
+    Ok(StatusCode::OK)
 }

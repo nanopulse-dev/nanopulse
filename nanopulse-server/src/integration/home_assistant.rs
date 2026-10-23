@@ -8,7 +8,7 @@ use rumqttc::{AsyncClient, Event, Incoming, MqttOptions, PublishOptions, mqttbyt
 use serde::Serialize;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
-use tracing::{error, info, trace};
+use tracing::{error, info, trace, warn};
 
 use super::{
     ActivationEvent, Integration as IntegrationTrait, KeyExchangeEvent, StateEvent, TelemetryEvent,
@@ -374,7 +374,15 @@ async fn message_callback(p: Publish) {
         if topic.ends_with("/state") {
             let v: serde_json::Value = serde_json::from_slice(p.payload.as_ref())?;
             let v = strings_to_bools(v);
-            tokio::spawn(set_device_state_desired(parts[4].to_string(), v));
+            tokio::spawn({
+                let device_name = parts[4].to_string();
+
+                async move {
+                    if let Err(e) = set_device_state_desired(&device_name, v).await {
+                        warn!(device_name = %device_name, error = %e, "error setting desired device state");
+                    }
+                }
+            });
         }
 
         Ok(())
