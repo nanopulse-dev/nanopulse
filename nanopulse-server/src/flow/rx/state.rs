@@ -139,6 +139,7 @@ impl Flow {
 
     async fn update_device(&mut self) -> Result<(), Error> {
         trace!("update_device fn");
+        self.device_changeset.last_seen_at = Some(Utc::now());
         self.device = device::update(self.device.id, &self.device_changeset).await?;
         Ok(())
     }

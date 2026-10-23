@@ -51,6 +51,12 @@ export function DeviceDashboard(props: IProps) {
               </DataList.ItemValue>
             </DataList.Item>
             <DataList.Item>
+              <DataList.ItemLabel>Last seen at:</DataList.ItemLabel>
+              <DataList.ItemValue>
+                {formatDateTime(props.device.last_seen_at)}
+              </DataList.ItemValue>
+            </DataList.Item>
+            <DataList.Item>
               <DataList.ItemLabel>Description:</DataList.ItemLabel>
               <DataList.ItemValue>
                 {props.device.description}

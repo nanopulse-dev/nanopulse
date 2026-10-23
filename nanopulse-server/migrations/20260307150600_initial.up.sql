@@ -32,6 +32,7 @@ create table device (
   updated_at timestamp not null,
   key_exchange_at timestamp null,
   activation_at timestamp null,
+  last_seen_at timestamp null,
   pin blob not null,
   description text not null,
   vendor_id blob not null default x'',

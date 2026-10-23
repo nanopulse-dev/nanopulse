@@ -46,6 +46,9 @@ pub struct Device {
     /// Last activation at timestamp.
     pub activation_at: Option<DateTime<Utc>>,
 
+    /// Last seen at timestamp.
+    pub last_seen_at: Option<DateTime<Utc>>,
+
     /// Device PIN.
     pub pin: fields::HexArray<4>,
 
@@ -170,6 +173,7 @@ impl Default for Device {
             updated_at: now,
             key_exchange_at: None,
             activation_at: None,
+            last_seen_at: None,
             pin: fields::HexArray::default(),
             description: "".into(),
             vendor_id: fields::HexArray::default(),
@@ -203,6 +207,7 @@ pub struct DeviceChangeSet {
     pub session_root_key: Option<fields::HexArray<32>>,
     pub key_exchange_at: Option<DateTime<Utc>>,
     pub activation_at: Option<DateTime<Utc>>,
+    pub last_seen_at: Option<DateTime<Utc>>,
     pub vendor_id: Option<fields::HexArray<4>>,
     pub profile_id: Option<fields::HexArray<2>>,
     pub version_id: Option<fields::HexArray<2>>,
@@ -357,6 +362,9 @@ pub async fn update(id: i64, changes: &DeviceChangeSet) -> Result<Device, Error>
     }
     if let Some(v) = &changes.activation_at {
         values.push((DeviceIden::ActivationAt, (*v).into()));
+    }
+    if let Some(v) = &changes.last_seen_at {
+        values.push((DeviceIden::LastSeenAt, (*v).into()));
     }
     if let Some(v) = &changes.vendor_id {
         values.push((DeviceIden::VendorId, v.as_vec().into()));

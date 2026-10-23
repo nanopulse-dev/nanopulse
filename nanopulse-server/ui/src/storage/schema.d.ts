@@ -206,7 +206,7 @@ export interface components {
             /**
              * Format: date-time
              * @description Created-at timestamp.
-             * @default 2026-10-16T10:31:53.587977372Z
+             * @default 2026-10-23T09:47:28.410987765Z
              */
             created_at: string;
             /**
@@ -220,6 +220,12 @@ export interface components {
              * @default null
              */
             key_exchange_at: string | null;
+            /**
+             * Format: date-time
+             * @description Last seen at timestamp.
+             * @default null
+             */
+            last_seen_at: string | null;
             /** @description MAC configuration of the device (current). */
             mac_configuration?: unknown;
             /** @description MAC configuration of the device (desired). */
@@ -259,7 +265,7 @@ export interface components {
             /**
              * Format: date-time
              * @description Updated-at timestamp.
-             * @default 2026-10-16T10:31:53.587983093Z
+             * @default 2026-10-23T09:47:28.410990370Z
              */
             updated_at: string;
             /**
@@ -346,7 +352,7 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description Created-at timestamp.
-                 * @default 2026-10-16T10:31:53.588039690Z
+                 * @default 2026-10-23T09:47:28.411020167Z
                  */
                 created_at: string;
                 /**
@@ -360,6 +366,12 @@ export interface components {
                  * @default null
                  */
                 key_exchange_at: string | null;
+                /**
+                 * Format: date-time
+                 * @description Last seen at timestamp.
+                 * @default null
+                 */
+                last_seen_at: string | null;
                 /** @description MAC configuration of the device (current). */
                 mac_configuration?: unknown;
                 /** @description MAC configuration of the device (desired). */
@@ -399,7 +411,7 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description Updated-at timestamp.
-                 * @default 2026-10-16T10:31:53.588043006Z
+                 * @default 2026-10-23T09:47:28.411021810Z
                  */
                 updated_at: string;
                 /**
