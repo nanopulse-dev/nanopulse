@@ -104,7 +104,7 @@ pub async fn start(gateway_name: &str, radio: Box<dyn Radio>, mqtt_config: &Mqtt
                         continue;
                     }
                 };
-                info!(topic = %hb_topic, bytes_len = hb_b.len(), "publishing heartbeat event");
+                info!(topic = %hb_topic, bytes_len = hb_b.len(), "sending heartbeat event");
                 if let Err(e) = client.publish(&hb_topic, hb_b, pub_options.clone()).await {
                     error!(topic = %hb_topic, error = %e, "publish error");
                 }
@@ -162,6 +162,21 @@ pub async fn start(gateway_name: &str, radio: Box<dyn Radio>, mqtt_config: &Mqtt
             info!("starting heartbeat loop");
 
             loop {
+                let empty_config = STATE
+                    .get()
+                    .unwrap()
+                    .lock()
+                    .await
+                    .heartbeat_state
+                    .config_version
+                    .is_empty();
+
+                let heartbeat_interval = if empty_config {
+                    Duration::from_secs(5)
+                } else {
+                    heartbeat_interval
+                };
+
                 sleep(heartbeat_interval).await;
                 {
                     let state = STATE.get().unwrap().lock().await;
