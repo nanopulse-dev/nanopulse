@@ -69,3 +69,11 @@ create table device_key_exchange (
 );
 
 create index idx_device_key_exchange_device_id on device_key_exchange (device_id);
+
+create table device_pending_request (
+  device_id integer not null references device on delete cascade,
+  request_counter integer not null,
+  created_at timestamp not null,
+  payload text not null default '{}',
+  primary key (device_id, request_counter)
+);

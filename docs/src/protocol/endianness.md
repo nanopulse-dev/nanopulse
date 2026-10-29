@@ -1,7 +1,8 @@
 # Endianness
 
-NanoPulse encodes multi-byte data-types as little-endian when encoding the
-frames. Data-types that represent a sequences of bytes are not affected by this
+NanoPulse encodes multi-byte data-types as little-endian. This applies to frame
+payloads and to input to cryptographic functions (e.g. info to HKDF functions).
+Data-types that represent a sequences of bytes are not affected by this
 convention. When a sequence of bits are documented, bit `0` means the
 least-significant bit.
 

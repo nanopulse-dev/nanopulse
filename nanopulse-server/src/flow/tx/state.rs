@@ -20,7 +20,8 @@ pub struct Flow {
     device: device::Device,
     device_changeset: device::DeviceChangeSet,
     workspace: workspace::Workspace,
-    payload: Vec<u8>,
+    state_diff: serde_json::Value,
+    state_diff_pl: Vec<u8>,
 }
 
 impl Flow {
@@ -33,7 +34,8 @@ impl Flow {
             frame_set,
             device,
             workspace,
-            payload: vec![],
+            state_diff: Default::default(),
+            state_diff_pl: vec![],
             device_changeset: Default::default(),
         }
     }
@@ -45,6 +47,7 @@ impl Flow {
 
     async fn _handle_response(&mut self) -> Result<(), Error> {
         self.get_diff_payload().await?;
+        self.store_pending_request().await?;
         self.send_state().await?;
         self.update_device().await?;
         Ok(())
@@ -53,22 +56,26 @@ impl Flow {
     async fn get_diff_payload(&mut self) -> Result<(), Error> {
         trace!("get_diff_payload fn");
 
-        let state_diff = json_diff(&self.device.state, &self.device.state_desired);
-        let pl = encode_state(&self.device.lua_profile_module(), &state_diff)?;
-        if pl.is_empty() {
+        self.state_diff = json_diff(&self.device.state, &self.device.state_desired);
+        self.state_diff_pl = encode_state(&self.device.lua_profile_module(), &self.state_diff)?;
+        if self.state_diff_pl.is_empty() {
             warn!("encoded diff payload is empty, aborting");
             return Err(Error::Abort);
         }
 
-        self.payload = pl;
-
         Ok(())
     }
 
-    async fn update_device(&mut self) -> Result<(), Error> {
-        trace!("update_device fn");
+    async fn store_pending_request(&self) -> Result<(), Error> {
+        trace!("store_pending_request fn");
 
-        self.device = device::update(self.device.id, &self.device_changeset).await?;
+        device::insert_pending_request(device::DevicePendingRequest {
+            device_id: self.device.id,
+            request_counter: (self.device.counter_down as u16).into(),
+            payload: self.state_diff.clone(),
+            ..Default::default()
+        })
+        .await?;
 
         Ok(())
     }
@@ -104,9 +111,10 @@ impl Flow {
         let mut pl = frames::Frame {
             payload: frames::Payload::State(state::State {
                 is_downlink: true,
+                is_resp: false,
                 short_id: self.device.short_id.into(),
                 counter: counter_down,
-                payload: self.payload.as_slice().try_into()?,
+                payload: state::Payload::Request(self.state_diff_pl.as_slice().try_into()?),
             }),
             mic: None,
         };
@@ -130,6 +138,14 @@ impl Flow {
         };
 
         send_tx_command(&dl_gw.gateway_name, &tx_cmd).await?;
+
+        Ok(())
+    }
+
+    async fn update_device(&mut self) -> Result<(), Error> {
+        trace!("update_device fn");
+
+        self.device = device::update(self.device.id, &self.device_changeset).await?;
 
         Ok(())
     }

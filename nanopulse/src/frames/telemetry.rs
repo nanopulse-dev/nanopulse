@@ -5,7 +5,7 @@ use heapless::Vec;
 use crate::errors::Error;
 use crate::frames::{Buffer, FrameType};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Telemetry {
     pub short_id: [u8; 4],
     pub counter: u32,

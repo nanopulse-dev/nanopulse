@@ -86,12 +86,21 @@ pub struct StateEvent {
     pub state: serde_json::Value,
 }
 
+#[derive(Default, Debug, Clone, Serialize)]
+pub struct ErrorEvent {
+    pub timestamp: DateTime<Utc>,
+    pub device_info: DeviceInfo,
+    pub request: Option<serde_json::Value>,
+    pub errors: Vec<String>,
+}
+
 #[async_trait]
 pub trait Integration {
     async fn key_exchange(&self, pl: &KeyExchangeEvent) -> Result<()>;
     async fn activation(&self, pl: &ActivationEvent) -> Result<()>;
     async fn telemetry(&self, pl: &TelemetryEvent) -> Result<()>;
     async fn state(&self, pl: &StateEvent) -> Result<()>;
+    async fn error(&self, pl: &ErrorEvent) -> Result<()>;
 }
 
 pub async fn key_exchange_event(pl: &KeyExchangeEvent) {
@@ -193,6 +202,33 @@ async fn _state_event(pl: &StateEvent) -> Result<()> {
 
     for i in ints.iter() {
         futures.push(i.state(pl));
+    }
+
+    for e in join_all(futures).await {
+        e?;
+    }
+
+    Ok(())
+}
+
+pub async fn error_event(pl: &ErrorEvent) {
+    tokio::spawn({
+        let pl = pl.clone();
+
+        async move {
+            if let Err(e) = _error_event(&pl).await {
+                warn!(device_name = %pl.device_info.device_name, device_short_id = %pl.device_info.device_short_id, error = %e, "error integration event error");
+            }
+        }
+    });
+}
+
+async fn _error_event(pl: &ErrorEvent) -> Result<()> {
+    let ints = GLOBAL_INTEGRATIONS.read().await;
+    let mut futures = Vec::new();
+
+    for i in ints.iter() {
+        futures.push(i.error(pl));
     }
 
     for e in join_all(futures).await {

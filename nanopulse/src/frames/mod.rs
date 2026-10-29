@@ -133,8 +133,8 @@ impl TryFrom<&Payload> for Buffer {
             Payload::ActivationRequest(v) => v.try_into(),
             Payload::ActivationResponse(v) => v.try_into(),
             Payload::Telemetry(v) => Ok(v.into()),
-            Payload::State(v) => Ok(v.into()),
-            Payload::Configuration(v) => Ok(v.into()),
+            Payload::State(v) => v.try_into(),
+            Payload::Configuration(v) => v.try_into(),
         }
     }
 }
@@ -188,8 +188,8 @@ impl Frame {
             Payload::ActivationRequest(pl) => &TryInto::<[u8; 17]>::try_into(pl)?,
             Payload::ActivationResponse(pl) => &TryInto::<[u8; 7]>::try_into(pl)?,
             Payload::Telemetry(pl) => &Buffer::from(pl),
-            Payload::State(pl) => &Buffer::from(pl),
-            Payload::Configuration(pl) => &Buffer::from(pl),
+            Payload::State(pl) => &Buffer::try_from(pl)?,
+            Payload::Configuration(pl) => &Buffer::try_from(pl)?,
             _ => return Err(Error::InvalidPayload),
         };
 
@@ -494,13 +494,14 @@ mod test {
     }
 
     #[test]
-    fn test_state() {
+    fn test_state_req() {
         let mut pl = Frame {
             payload: Payload::State(state::State {
                 short_id: [1, 2, 3, 4],
                 is_downlink: true,
+                is_resp: false,
                 counter: 12345,
-                payload: [1, 2, 3, 4, 5].try_into().unwrap(),
+                payload: state::Payload::Request([1, 2, 3, 4, 5].try_into().unwrap()),
             }),
             mic: None,
         };
@@ -511,8 +512,11 @@ mod test {
                 payload: Payload::State(state::State {
                     short_id: [1, 2, 3, 4],
                     is_downlink: true,
+                    is_resp: false,
                     counter: 12345,
-                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                    payload: state::Payload::Encrypted(
+                        [188, 95, 115, 168, 112].try_into().unwrap()
+                    ),
                 }),
                 mic: None,
             },
@@ -525,8 +529,11 @@ mod test {
                 payload: Payload::State(state::State {
                     short_id: [1, 2, 3, 4],
                     is_downlink: true,
+                    is_resp: false,
                     counter: 12345,
-                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                    payload: state::Payload::Encrypted(
+                        [188, 95, 115, 168, 112].try_into().unwrap()
+                    ),
                 }),
                 mic: Some([188, 224, 52, 72]),
             },
@@ -546,13 +553,76 @@ mod test {
     }
 
     #[test]
-    fn test_configuration() {
+    fn test_state_resp() {
+        let mut pl = Frame {
+            payload: Payload::State(state::State {
+                short_id: [1, 2, 3, 4],
+                is_downlink: true,
+                is_resp: true,
+                counter: 12345,
+                payload: state::Payload::Response(state::ResponsePayload {
+                    request_counter: 12345,
+                    payload: [1, 2, 3, 4, 5].try_into().unwrap(),
+                }),
+            }),
+            mic: None,
+        };
+
+        pl.encrypt(&TEST_KEY).unwrap();
+        assert_eq!(
+            Frame {
+                payload: Payload::State(state::State {
+                    short_id: [1, 2, 3, 4],
+                    is_downlink: true,
+                    is_resp: true,
+                    counter: 12345,
+                    payload: state::Payload::Encrypted(
+                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                    ),
+                }),
+                mic: None,
+            },
+            pl
+        );
+
+        pl.set_mic(&TEST_KEY).unwrap();
+        assert_eq!(
+            Frame {
+                payload: Payload::State(state::State {
+                    short_id: [1, 2, 3, 4],
+                    is_downlink: true,
+                    is_resp: true,
+                    counter: 12345,
+                    payload: state::Payload::Encrypted(
+                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                    ),
+                }),
+                mic: Some([166, 45, 83, 56]),
+            },
+            pl
+        );
+
+        let b: Vec<_> = (&pl).try_into().unwrap();
+        assert_eq!(
+            vec![
+                115, 1, 2, 3, 4, 57, 48, 0, 0, 132, 109, 113, 174, 118, 174, 81, 166, 45, 83, 56
+            ],
+            b
+        );
+
+        let pl_new = Frame::try_from(b.as_ref()).unwrap();
+        assert_eq!(pl, pl_new);
+    }
+
+    #[test]
+    fn test_configuration_req() {
         let mut pl = Frame {
             payload: Payload::Configuration(configuration::Configuration {
                 short_id: [1, 2, 3, 4],
                 is_downlink: true,
+                is_resp: false,
                 counter: 12345,
-                payload: [1, 2, 3, 4, 5].try_into().unwrap(),
+                payload: configuration::Payload::Request([1, 2, 3, 4, 5].try_into().unwrap()),
             }),
             mic: None,
         };
@@ -563,8 +633,11 @@ mod test {
                 payload: Payload::Configuration(configuration::Configuration {
                     short_id: [1, 2, 3, 4],
                     is_downlink: true,
+                    is_resp: false,
                     counter: 12345,
-                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                    payload: configuration::Payload::Encrypted(
+                        [188, 95, 115, 168, 112].try_into().unwrap()
+                    ),
                 }),
                 mic: None,
             },
@@ -577,8 +650,11 @@ mod test {
                 payload: Payload::Configuration(configuration::Configuration {
                     short_id: [1, 2, 3, 4],
                     is_downlink: true,
+                    is_resp: false,
                     counter: 12345,
-                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                    payload: configuration::Payload::Encrypted(
+                        [188, 95, 115, 168, 112].try_into().unwrap()
+                    ),
                 }),
                 mic: Some([163, 108, 98, 204]),
             },
@@ -589,6 +665,68 @@ mod test {
         assert_eq!(
             vec![
                 129, 1, 2, 3, 4, 57, 48, 0, 0, 188, 95, 115, 168, 112, 163, 108, 98, 204
+            ],
+            b
+        );
+
+        let pl_new = Frame::try_from(b.as_ref()).unwrap();
+        assert_eq!(pl, pl_new);
+    }
+
+    #[test]
+    fn test_configuration_resp() {
+        let mut pl = Frame {
+            payload: Payload::Configuration(configuration::Configuration {
+                short_id: [1, 2, 3, 4],
+                is_downlink: true,
+                is_resp: true,
+                counter: 12345,
+                payload: configuration::Payload::Response(configuration::ResponsePayload {
+                    request_counter: 12345,
+                    payload: [1, 2, 3, 4, 5].try_into().unwrap(),
+                }),
+            }),
+            mic: None,
+        };
+
+        pl.encrypt(&TEST_KEY).unwrap();
+        assert_eq!(
+            Frame {
+                payload: Payload::Configuration(configuration::Configuration {
+                    short_id: [1, 2, 3, 4],
+                    is_downlink: true,
+                    is_resp: true,
+                    counter: 12345,
+                    payload: configuration::Payload::Encrypted(
+                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                    ),
+                }),
+                mic: None,
+            },
+            pl
+        );
+
+        pl.set_mic(&TEST_KEY).unwrap();
+        assert_eq!(
+            Frame {
+                payload: Payload::Configuration(configuration::Configuration {
+                    short_id: [1, 2, 3, 4],
+                    is_downlink: true,
+                    is_resp: true,
+                    counter: 12345,
+                    payload: configuration::Payload::Encrypted(
+                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                    ),
+                }),
+                mic: Some([164, 38, 172, 248]),
+            },
+            pl
+        );
+
+        let b: Vec<_> = (&pl).try_into().unwrap();
+        assert_eq!(
+            vec![
+                131, 1, 2, 3, 4, 57, 48, 0, 0, 132, 109, 113, 174, 118, 174, 81, 164, 38, 172, 248,
             ],
             b
         );

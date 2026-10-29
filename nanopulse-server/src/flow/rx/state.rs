@@ -9,7 +9,7 @@ use crate::errors::Error;
 use crate::flow::rx::RxFrameSet;
 use crate::flow::tx;
 use crate::integration;
-use crate::profile::decode_state;
+use crate::profile::decode_state_resp;
 use crate::storage::{device, workspace};
 
 pub struct Flow {
@@ -17,7 +17,8 @@ pub struct Flow {
     payload: state::State,
     device: device::Device,
     workspace: workspace::Workspace,
-    state: Option<serde_json::Value>,
+    state_req: serde_json::Value,
+    state_errors: Option<Vec<String>>,
     device_changeset: device::DeviceChangeSet,
 }
 
@@ -33,7 +34,8 @@ impl Flow {
             payload,
             device: Default::default(),
             workspace: Default::default(),
-            state: None,
+            state_req: Default::default(),
+            state_errors: None,
             device_changeset: device::DeviceChangeSet::default(),
         })
     }
@@ -59,7 +61,7 @@ impl Flow {
 
         async {
             self.decrypt_payload()?;
-            self.decode_state()?;
+            self.handle_response().await?;
             self.update_device().await?;
             self.send_to_integration().await?;
             self.start_tx_flow().await?;
@@ -126,13 +128,27 @@ impl Flow {
         Ok(())
     }
 
-    fn decode_state(&mut self) -> Result<(), Error> {
-        trace!("decode_state fn");
-        let state = decode_state(&self.device.lua_profile_module(), &self.payload.payload)?;
+    async fn handle_response(&mut self) -> Result<(), Error> {
+        trace!("handle_response fn");
 
-        json_patch::merge(&mut self.device.state, &state);
-        self.state = Some(state);
-        self.device_changeset.state = Some(self.device.state.clone());
+        if let state::Payload::Response(pl) = &self.payload.payload {
+            let pending_req =
+                device::get_pending_request(self.device.id, pl.request_counter as i32).await?;
+            self.state_req = pending_req.payload.clone();
+
+            if !pl.payload.is_empty() {
+                self.state_errors = Some(decode_state_resp(
+                    &self.device.lua_profile_module(),
+                    &pl.payload,
+                )?);
+            } else {
+                json_patch::merge(&mut self.device.state, &pending_req.payload);
+                self.device_changeset.state = Some(self.device.state.clone());
+            }
+        } else {
+            warn!("state payload is not a response");
+            return Err(Error::Abort);
+        }
 
         Ok(())
     }
@@ -146,15 +162,23 @@ impl Flow {
 
     async fn send_to_integration(&self) -> Result<(), Error> {
         trace!("send_to_integration fn");
-        let s = self.state.as_ref().unwrap();
 
-        let pl = integration::StateEvent {
-            timestamp: Utc::now(),
-            device_info: integration::DeviceInfo::new(&self.workspace, &self.device),
-            state: s.clone(),
-        };
-
-        integration::state_event(&pl).await;
+        if let Some(errors) = &self.state_errors {
+            let pl = integration::ErrorEvent {
+                timestamp: Utc::now(),
+                device_info: integration::DeviceInfo::new(&self.workspace, &self.device),
+                request: Some(self.state_req.clone()),
+                errors: errors.clone(),
+            };
+            integration::error_event(&pl).await;
+        } else {
+            let pl = integration::StateEvent {
+                timestamp: Utc::now(),
+                device_info: integration::DeviceInfo::new(&self.workspace, &self.device),
+                state: self.state_req.clone(),
+            };
+            integration::state_event(&pl).await;
+        }
 
         Ok(())
     }

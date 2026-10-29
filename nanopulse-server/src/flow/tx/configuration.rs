@@ -4,7 +4,7 @@ use tracing::{Instrument, Level, span, trace, warn};
 
 use nanopulse::{
     frames,
-    frames::{FrameType, state},
+    frames::{FrameType, configuration},
     keys,
 };
 use nanopulse_structs::gateway::{Timing, TimingDelay, TxCommand};
@@ -20,7 +20,8 @@ pub struct Flow {
     device: device::Device,
     device_changeset: device::DeviceChangeSet,
     workspace: workspace::Workspace,
-    payload: Vec<u8>,
+    config_diff: serde_json::Value,
+    config_diff_pl: Vec<u8>,
 }
 
 impl Flow {
@@ -34,7 +35,8 @@ impl Flow {
             device,
             workspace,
             device_changeset: Default::default(),
-            payload: vec![],
+            config_diff: Default::default(),
+            config_diff_pl: vec![],
         }
     }
 
@@ -45,6 +47,7 @@ impl Flow {
 
     async fn _handle_response(&mut self) -> Result<(), Error> {
         self.get_diff_payload().await?;
+        self.store_pending_request().await?;
         self.send_configuration().await?;
         self.update_device().await?;
 
@@ -54,25 +57,30 @@ impl Flow {
     async fn get_diff_payload(&mut self) -> Result<(), Error> {
         trace!("get_diff_payload fn");
 
-        let config_diff = json_diff(
+        self.config_diff = json_diff(
             &self.device.configuration,
             &self.device.configuration_desired,
         );
-        let pl = encode_configuration(&self.device.lua_profile_module(), &config_diff)?;
-        if pl.is_empty() {
+        self.config_diff_pl =
+            encode_configuration(&self.device.lua_profile_module(), &self.config_diff)?;
+        if self.config_diff_pl.is_empty() {
             warn!("encoded diff payload is empty, aborting");
             return Err(Error::Abort);
         }
 
-        self.payload = pl;
-
         Ok(())
     }
 
-    async fn update_device(&mut self) -> Result<(), Error> {
-        trace!("update device fn");
+    async fn store_pending_request(&self) -> Result<(), Error> {
+        trace!("store_pending_request fn");
 
-        self.device = device::update(self.device.id, &self.device_changeset).await?;
+        device::insert_pending_request(device::DevicePendingRequest {
+            device_id: self.device.id,
+            request_counter: (self.device.counter_down as u16).into(),
+            payload: self.config_diff.clone(),
+            ..Default::default()
+        })
+        .await?;
 
         Ok(())
     }
@@ -106,11 +114,14 @@ impl Flow {
         self.device_changeset.counter_down = Some(self.device.counter_down + 1);
 
         let mut pl = frames::Frame {
-            payload: frames::Payload::State(state::State {
+            payload: frames::Payload::Configuration(configuration::Configuration {
                 is_downlink: true,
+                is_resp: false,
                 short_id: self.device.short_id.into(),
                 counter: counter_down,
-                payload: self.payload.as_slice().try_into()?,
+                payload: configuration::Payload::Request(
+                    self.config_diff_pl.as_slice().try_into()?,
+                ),
             }),
             mic: None,
         };
@@ -134,6 +145,14 @@ impl Flow {
         };
 
         send_tx_command(&dl_gw.gateway_name, &tx_cmd).await?;
+
+        Ok(())
+    }
+
+    async fn update_device(&mut self) -> Result<(), Error> {
+        trace!("update device fn");
+
+        self.device = device::update(self.device.id, &self.device_changeset).await?;
 
         Ok(())
     }

@@ -33,7 +33,7 @@ use nanopulse_device::lora_phy::{
 };
 
 // nanopulse
-use nanopulse::frames::{Buffer, FrameType};
+use nanopulse::frames::{Buffer, Payload, telemetry};
 use nanopulse_device::context::{
     Counters, RootSecurity, get_counters, get_root_security, write_counters, write_root_security,
 };
@@ -43,8 +43,8 @@ use nanopulse_device::region;
 esp_bootloader_esp_idf::esp_app_desc!();
 
 // Channels for communication between tasks
-static RX_CHANNEL: Channel<CriticalSectionRawMutex, (FrameType, Buffer), 1> = Channel::new();
-static TX_CHANNEL: Channel<CriticalSectionRawMutex, (FrameType, Buffer), 1> = Channel::new();
+static RX_CHANNEL: Channel<CriticalSectionRawMutex, Payload, 1> = Channel::new();
+static TX_CHANNEL: Channel<CriticalSectionRawMutex, Payload, 1> = Channel::new();
 
 // We need to define the exact types, as embassy_executor::task does not accept generics.
 type SpiType = ExclusiveDevice<Spi<'static, esp_hal::Async>, Output<'static>, Delay>;
@@ -155,29 +155,28 @@ async fn main(spawner: Spawner) {
 #[embassy_executor::task]
 async fn device_loop(
     mut d: DeviceType,
-    _rx_sender: Sender<'static, CriticalSectionRawMutex, (FrameType, Buffer), 1>,
-    tx_receiver: Receiver<'static, CriticalSectionRawMutex, (FrameType, Buffer), 1>,
+    _rx_sender: Sender<'static, CriticalSectionRawMutex, Payload, 1>,
+    tx_receiver: Receiver<'static, CriticalSectionRawMutex, Payload, 1>,
 ) {
     info!("starting device_loop");
     loop {
         match d.next().await {
             Ok(Some(_pl)) => info!("received payload"),
             Ok(None) => {
-                if let Ok((frame_type, pl)) = tx_receiver.try_receive() {
-                    match frame_type {
-                        FrameType::Telemetry => {
+                if let Ok(pl) = tx_receiver.try_receive() {
+                    match pl {
+                        Payload::Telemetry(pl) => {
                             info!("sending telemetry payload");
-                            if let Err(e) = d.send_telemetry(&pl).await {
+                            if let Err(e) = d.send_telemetry(pl).await {
                                 error!("send telemetry error: {}", e);
                             }
                         }
-                        FrameType::State => {
+                        Payload::State(pl) => {
                             info!("sending state payload");
-                            if let Err(e) = d.send_state(&pl).await {
+                            if let Err(e) = d.send_state(pl).await {
                                 error!("send state error: {}", e);
                             }
                         }
-
                         _ => {}
                     }
                 }
@@ -197,7 +196,7 @@ async fn device_loop(
 
 #[embassy_executor::task]
 async fn telemetry_loop(
-    tx_sender: Sender<'static, CriticalSectionRawMutex, (FrameType, Buffer), 1>,
+    tx_sender: Sender<'static, CriticalSectionRawMutex, Payload, 1>,
     mut wifi_controller: esp_radio::wifi::WifiController<'static>,
 ) {
     info!("starting telemetry loop");
@@ -225,7 +224,13 @@ async fn telemetry_loop(
             b.push((-1 * v) as u8).unwrap();
         }
 
-        tx_sender.send((FrameType::Telemetry, b)).await;
+        tx_sender
+            .send(Payload::Telemetry(telemetry::Telemetry {
+                payload: b,
+                ..Default::default()
+            }))
+            .await;
+
         Timer::after(Duration::from_secs(30)).await;
     }
 }

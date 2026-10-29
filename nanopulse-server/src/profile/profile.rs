@@ -206,6 +206,18 @@ pub fn decode_state(profile_mod: &str, pl: &[u8]) -> Result<serde_json::Value> {
     Ok(serde_json::to_value(value)?)
 }
 
+pub fn decode_state_resp(profile_mod: &str, pl: &[u8]) -> Result<Vec<String>> {
+    if pl.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let lua = lua::get()?;
+    let function = lua::get_function(&lua, profile_mod, "decode_state_resp")?;
+    let errors: Vec<String> = function.call(pl)?;
+
+    Ok(errors)
+}
+
 pub fn encode_configuration(profile_mod: &str, pl: &serde_json::Value) -> Result<Vec<u8>> {
     let lua = lua::get()?;
     let function = lua::get_function(&lua, profile_mod, "encode_configuration")?;
@@ -220,6 +232,18 @@ pub fn decode_configuration(profile_mod: &str, pl: &[u8]) -> Result<serde_json::
     let value: Value = function.call(pl)?;
 
     Ok(serde_json::to_value(value)?)
+}
+
+pub fn decode_configuration_resp(profile_mod: &str, pl: &[u8]) -> Result<Vec<String>> {
+    if pl.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let lua = lua::get()?;
+    let function = lua::get_function(&lua, profile_mod, "decode_configuration_resp")?;
+    let errors: Vec<String> = function.call(pl)?;
+
+    Ok(errors)
 }
 
 #[cfg(test)]

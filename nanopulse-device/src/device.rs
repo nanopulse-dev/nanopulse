@@ -254,14 +254,15 @@ impl<
         Ok(())
     }
 
-    pub async fn send_telemetry(&mut self, pl: &[u8]) -> Result<(), Error> {
+    pub async fn send_telemetry(&mut self, mut pl: telemetry::Telemetry) -> Result<(), Error> {
         if !self.session.is_activated() {
             error!("device must be activated first");
             return Err(Error::NotActivated);
         }
 
         info!("starting telemetry");
-        let counter_up = self.session.counter_up;
+        pl.short_id = self.root_security.short_id;
+        pl.counter = self.session.counter_up;
         self.session.counter_up += 1;
 
         let tx_ch = self.get_random_tx_channel();
@@ -279,11 +280,7 @@ impl<
         debug!("mic_key: {:02x}", mic_key);
 
         let mut pl = Frame {
-            payload: Payload::Telemetry(telemetry::Telemetry {
-                short_id: self.root_security.short_id,
-                counter: counter_up,
-                payload: Vec::try_from(pl).map_err(|_| Error::HeaplessVec)?,
-            }),
+            payload: Payload::Telemetry(pl),
             mic: None,
         };
         pl.encrypt(&enc_key).map_err(|e| {
@@ -318,14 +315,16 @@ impl<
         Ok(())
     }
 
-    pub async fn send_state(&mut self, pl: &[u8]) -> Result<(), Error> {
+    pub async fn send_state(&mut self, mut pl: state::State) -> Result<(), Error> {
         if !self.session.is_activated() {
             error!("device must be activated first");
             return Err(Error::NotActivated);
         }
 
         info!("starting state");
-        let counter_up = self.session.counter_up;
+        pl.is_resp = matches!(pl.payload, state::Payload::Response(_));
+        pl.counter = self.session.counter_up;
+        pl.short_id = self.root_security.short_id;
         self.session.counter_up += 1;
 
         let tx_ch = self.get_random_tx_channel();
@@ -343,12 +342,7 @@ impl<
         debug!("mic_key: {:02x}", mic_key);
 
         let mut pl = Frame {
-            payload: Payload::State(state::State {
-                is_downlink: false,
-                short_id: self.root_security.short_id,
-                counter: counter_up,
-                payload: Vec::try_from(pl).map_err(|_| Error::HeaplessVec)?,
-            }),
+            payload: Payload::State(pl),
             mic: None,
         };
         pl.encrypt(&enc_key).map_err(|e| {

@@ -9,7 +9,8 @@ use tokio::sync::broadcast;
 use tracing::info;
 
 use super::{
-    ActivationEvent, Integration as IntegrationTrait, KeyExchangeEvent, StateEvent, TelemetryEvent,
+    ActivationEvent, ErrorEvent, Integration as IntegrationTrait, KeyExchangeEvent, StateEvent,
+    TelemetryEvent,
 };
 use crate::errors::Error;
 
@@ -28,6 +29,7 @@ pub struct Event {
     pub activation_event: Option<ActivationEvent>,
     pub state_event: Option<StateEvent>,
     pub telemetry_event: Option<TelemetryEvent>,
+    pub error_event: Option<ErrorEvent>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -81,6 +83,17 @@ impl IntegrationTrait for Integration {
             &pl.device_info.workspace_name,
             Event {
                 state_event: Some(pl.clone()),
+                ..Default::default()
+            },
+        );
+        Ok(())
+    }
+
+    async fn error(&self, pl: &ErrorEvent) -> Result<()> {
+        publish(
+            &pl.device_info.workspace_name,
+            Event {
+                error_event: Some(pl.clone()),
                 ..Default::default()
             },
         );

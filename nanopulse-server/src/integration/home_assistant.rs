@@ -11,8 +11,8 @@ use tokio::time::sleep;
 use tracing::{error, info, trace, warn};
 
 use super::{
-    ActivationEvent, Integration as IntegrationTrait, KeyExchangeEvent, StateEvent, TelemetryEvent,
-    handlers::set_device_state_desired,
+    ActivationEvent, ErrorEvent, Integration as IntegrationTrait, KeyExchangeEvent, StateEvent,
+    TelemetryEvent, handlers::set_device_state_desired,
 };
 use crate::config;
 use crate::profile::{Component, ComponentType, LocationSourceType, SensorType, TemperatureUnit};
@@ -212,6 +212,11 @@ impl IntegrationTrait for Integration {
                 pub_options,
             )
             .await?;
+        Ok(())
+    }
+
+    async fn error(&self, _pl: &ErrorEvent) -> Result<()> {
+        // Not implemented
         Ok(())
     }
 }

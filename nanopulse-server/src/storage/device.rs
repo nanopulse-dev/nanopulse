@@ -2,7 +2,9 @@ use std::fmt::Display;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sea_query::{Asterisk, Expr, ExprTrait, Order, Query, SqliteQueryBuilder, enum_def};
+use sea_query::{
+    Asterisk, Expr, ExprTrait, OnConflict, Order, Query, SqliteQueryBuilder, enum_def,
+};
 use sea_query_sqlx::SqlxBinder;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -12,6 +14,20 @@ use validator::Validate;
 
 use crate::errors::Error;
 use crate::storage::{NAME_REGEX, fields, get_conn, json_value};
+
+pub enum Counter {
+    ActivationRequestCounter(u32),
+    CounterUp(u32),
+}
+
+impl Display for Counter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Counter::ActivationRequestCounter(v) => write!(f, "activation_req_counter: {}", v),
+            Counter::CounterUp(v) => write!(f, "counter_up: {}", v),
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, FromRow, Validate, PartialEq, Eq)]
 #[enum_def]
@@ -104,20 +120,6 @@ pub struct Device {
     pub counter_up: u32,
     #[serde(skip)]
     pub counter_down: u32,
-}
-
-pub enum Counter {
-    ActivationRequestCounter(u32),
-    CounterUp(u32),
-}
-
-impl Display for Counter {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Counter::ActivationRequestCounter(v) => write!(f, "activation_req_counter: {}", v),
-            Counter::CounterUp(v) => write!(f, "counter_up: {}", v),
-        }
-    }
 }
 
 impl Device {
@@ -233,6 +235,26 @@ pub struct DeviceKeyExchange {
     pub request_nonce: i64,
     pub response_nonce: i64,
     pub root_key: fields::HexArray<32>,
+}
+
+#[derive(Debug, FromRow)]
+#[enum_def]
+pub struct DevicePendingRequest {
+    pub device_id: i64,
+    pub request_counter: i32,
+    pub created_at: DateTime<Utc>,
+    pub payload: serde_json::Value,
+}
+
+impl Default for DevicePendingRequest {
+    fn default() -> Self {
+        DevicePendingRequest {
+            device_id: 0,
+            request_counter: 0,
+            created_at: Utc::now(),
+            payload: serde_json::Value::default(),
+        }
+    }
 }
 
 pub async fn get(id: i64) -> Result<Device, Error> {
@@ -578,6 +600,64 @@ pub async fn get_key_exchanges(device_id: i64) -> Result<Vec<DeviceKeyExchange>,
         .map_err(Error::from_sqlx)
 }
 
+pub async fn insert_pending_request(
+    pr: DevicePendingRequest,
+) -> Result<DevicePendingRequest, Error> {
+    let (sql, values) = Query::insert()
+        .into_table(DevicePendingRequestIden::Table)
+        .columns([
+            DevicePendingRequestIden::DeviceId,
+            DevicePendingRequestIden::RequestCounter,
+            DevicePendingRequestIden::CreatedAt,
+            DevicePendingRequestIden::Payload,
+        ])
+        .values_panic([
+            pr.device_id.into(),
+            pr.request_counter.into(),
+            pr.created_at.into(),
+            pr.payload.into(),
+        ])
+        .on_conflict(
+            OnConflict::columns([
+                DevicePendingRequestIden::DeviceId,
+                DevicePendingRequestIden::RequestCounter,
+            ])
+            .update_columns([
+                DevicePendingRequestIden::CreatedAt,
+                DevicePendingRequestIden::Payload,
+            ])
+            .to_owned(),
+        )
+        .returning(Query::returning().all())
+        .build_sqlx(SqliteQueryBuilder);
+
+    let pr: DevicePendingRequest = sqlx::query_as_with(sqlx::AssertSqlSafe(sql.as_str()), values)
+        .fetch_one(&mut *get_conn().await?)
+        .await
+        .map_err(Error::from_sqlx)?;
+
+    info!("pending request stored");
+
+    Ok(pr)
+}
+
+pub async fn get_pending_request(
+    device_id: i64,
+    request_counter: i32,
+) -> Result<DevicePendingRequest, Error> {
+    let (sql, values) = Query::select()
+        .column(Asterisk)
+        .from(DevicePendingRequestIden::Table)
+        .and_where(Expr::col(DevicePendingRequestIden::DeviceId).is(device_id))
+        .and_where(Expr::col(DevicePendingRequestIden::RequestCounter).is(request_counter))
+        .build_sqlx(SqliteQueryBuilder);
+
+    sqlx::query_as_with(sqlx::AssertSqlSafe(sql.as_str()), values)
+        .fetch_one(&mut *get_conn().await?)
+        .await
+        .map_err(Error::from_sqlx)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -647,6 +727,8 @@ mod test {
 
         let key_exchanges = get_key_exchanges(d.id).await.unwrap();
         assert_eq!(2, key_exchanges.len());
+
+        // TODO: add pending requests
 
         delete(d.id).await.unwrap();
         assert!(delete(d.id).await.is_err());

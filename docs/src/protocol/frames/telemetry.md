@@ -5,10 +5,10 @@ data with the Server.
 
 > [!NOTE]
 > NanoPulse considers values like sensor data (counters, gauges, percentages,
-> ...) as telemetry. In some cases there might be an overlap with state. For
-> example the state of a valve can be considered telemetry or state depending
-> the type of device. As a rule of thumb, if the Server can not control it, it
-> is telemetry.
+> ...) as telemetry. In some cases there might be an overlap with
+> [State](./state.md). For example the state of a valve can be considered
+> telemetry or state depending the type of device. As a rule of thumb, if it is
+> observed it is telemetry, if can be controlled it is state.
 
 Bytes:
 

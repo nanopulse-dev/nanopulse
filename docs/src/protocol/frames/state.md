@@ -1,9 +1,10 @@
 # State
 
-The _State_ frame can be sent by both the Server as Device. Initially, the
-Server sends a _State_ frame to the device indicating which state must change
-(e.g. valve open / close). To confirm the reception, the Device must respond
-with a _State_ frame with a copy of the state change.
+The _State_ frame is used for requesting and responding to state changes (e.g.
+opening or closing a valve). The request is typically sent by the _Server_ to
+the _Device_, and the response is typically sent by the _Device_ to the
+_Server_. The request must be interpreted as a single transaction such that all
+changes either pass or fail.
 
 Bytes:
 
@@ -15,13 +16,19 @@ Bytes:
 
 Bits:
 
-| 7..4   | 3..1 | 0        |
-| ------ | ---- | -------- |
-| `0x07` | RFU  | Downlink |
+| 7..4   | 3..2 | 1    | 0         |
+| ------ | ---- | ---- | --------- |
+| `0x07` | RFU  | Resp | Direction |
 
-### Downlink
+### Direction
 
-Must be set on Server to Device communication.
+- `0` = Uplink
+- `1` = Downlink
+
+### Resp
+
+- `0`: The _Payload_ field contains the request.
+- `1`: The _Payload_ field contains the response.
 
 ## Short ID
 
@@ -36,14 +43,44 @@ there are two counters:
 - Counter Up
 - Counter Down
 
-## State Payload
+## Payload
 
-This fields holds the binary State Payload. Encoding / decoding is implemented
-in the device-profile.
+Depending the _Resp bit-field, this payload must either be interpreted as a
+request or as a response.
+
+### Request
+
+Bytes:
+
+| N bytes         |
+| --------------- |
+| Request Payload |
+
+Encoding / decoding of the _Request Payload_ is implemented in the
+device-profile.
+
+### Response
+
+Bytes:
+
+| 2 bytes         | N bytes          |
+| --------------- | ---------------- |
+| Request Counter | Response Payload |
+
+#### Request Counter
+
+The _Request Counter_ contains the 16LSB of the _Counter_ value of the frame
+containing the _Request Payload_ to which the response is related.
+
+#### Response Payload
+
+In case of success, this field is empty. In any other case, this field contains
+the status payload that can be decoded by the device-profile to one or multiple
+error messages.
 
 ### Encryption
 
-The State Payload is encrypted before transmission using the Encryption Key (see
+The Payload is encrypted before transmission using the Encryption Key (see
 below). The `IV` for the encryption key is:
 
 | 8 bytes    | 4 bytes |
