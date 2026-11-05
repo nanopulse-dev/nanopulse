@@ -82,7 +82,11 @@ function SwitchToggle(props: {
     return (
       <Center py="md">
         <Switch
-          checked={props.desired || props.value}
+          checked={
+            props.desired === undefined || props.value === props.desired
+              ? props.value
+              : props.desired
+          }
           label={`${props.name} switch`}
           onChange={(event) => props.onChange(event.currentTarget.checked)}
         />
