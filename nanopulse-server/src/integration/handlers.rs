@@ -17,3 +17,18 @@ pub async fn set_device_state_desired(
 
     Ok(())
 }
+
+pub async fn set_device_configuration_desired(
+    device_name: &str,
+    config: serde_json::Value,
+) -> Result<(), Error> {
+    let mut d = device::get_by_name(&device_name).await?;
+    json_patch::merge(&mut d.configuration_desired, &config);
+    let c = device::DeviceChangeSet {
+        configuration_desired: Some(d.configuration_desired.clone()),
+        ..Default::default()
+    };
+    device::update(d.id, &c).await?;
+
+    Ok(())
+}

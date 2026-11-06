@@ -63,11 +63,14 @@ export function DeviceLoader(props: { workspace: Workspace }) {
 
   useEffect(() => {
     if (device) {
-      const event = `PATCH:/api/workspaces/${props.workspace.name}/devices/${device.name}/state`;
-      clientEvents.on(event, getDevice);
+      const stateUpdate = `PATCH:/api/workspaces/${props.workspace.name}/devices/${device.name}/state`;
+      const configUpdate = `PATCH:/api/workspaces/${props.workspace.name}/devices/${device.name}/configuration`;
+      clientEvents.on(stateUpdate, getDevice);
+      clientEvents.on(configUpdate, getDevice);
 
       return () => {
-        clientEvents.removeListener(event, getDevice);
+        clientEvents.removeListener(stateUpdate, getDevice);
+        clientEvents.removeListener(configUpdate, getDevice);
       };
     }
   }, [getDevice, device]);

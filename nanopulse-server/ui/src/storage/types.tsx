@@ -9,6 +9,7 @@ export type Gateway = components["schemas"]["Gateway"];
 export type RegionListItem = components["schemas"]["RegionListItem"];
 export type TemperatureProperties =
   components["schemas"]["TemperatureProperties"];
+export type IntervalConfig = components["schemas"]["IntervalConfig"];
 
 export interface WsEvent {
   log?: Log;

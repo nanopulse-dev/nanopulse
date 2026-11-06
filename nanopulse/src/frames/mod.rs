@@ -17,6 +17,7 @@ pub type Buffer = Vec<u8, BUFFER_SIZE>;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum FrameType {
     KeyExchangeRequest = 0x00,
     KeyExchangeResponse = 0x01,
@@ -89,6 +90,18 @@ impl Payload {
             _ => Ok(()),
         }
     }
+
+    pub fn frame_type(&self) -> FrameType {
+        match self {
+            Payload::KeyExchangeRequest(_) => FrameType::KeyExchangeRequest,
+            Payload::KeyExchangeResponse(_) => FrameType::KeyExchangeResponse,
+            Payload::ActivationRequest(_) => FrameType::ActivationRequest,
+            Payload::ActivationResponse(_) => FrameType::ActivationResponse,
+            Payload::Telemetry(_) => FrameType::Telemetry,
+            Payload::State(_) => FrameType::State,
+            Payload::Configuration(_) => FrameType::Configuration,
+        }
+    }
 }
 
 impl TryFrom<&[u8]> for Payload {
@@ -147,15 +160,7 @@ pub struct Frame {
 
 impl Frame {
     pub fn frame_type(&self) -> FrameType {
-        match &self.payload {
-            Payload::KeyExchangeRequest(_) => FrameType::KeyExchangeRequest,
-            Payload::KeyExchangeResponse(_) => FrameType::KeyExchangeResponse,
-            Payload::ActivationRequest(_) => FrameType::ActivationRequest,
-            Payload::ActivationResponse(_) => FrameType::ActivationResponse,
-            Payload::Telemetry(_) => FrameType::Telemetry,
-            Payload::State(_) => FrameType::State,
-            Payload::Configuration(_) => FrameType::Configuration,
-        }
+        self.payload.frame_type()
     }
 
     pub fn set_mic(&mut self, mic_key: &[u8; 32]) -> Result<(), Error> {

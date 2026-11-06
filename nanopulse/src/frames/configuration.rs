@@ -5,7 +5,7 @@ use heapless::Vec;
 use crate::errors::Error;
 use crate::frames::{Buffer, FrameType};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Configuration {
     pub is_downlink: bool,
     pub is_resp: bool,
@@ -124,7 +124,13 @@ pub enum Payload {
     Response(ResponsePayload),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl Default for Payload {
+    fn default() -> Self {
+        Payload::Encrypted(Buffer::new())
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct ResponsePayload {
     pub request_counter: u16,
     pub payload: Buffer,

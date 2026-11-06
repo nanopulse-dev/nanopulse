@@ -42,18 +42,6 @@ function M.state_schema()
 	}
 end
 
-function M.decode_state(payload)
-	if #payload ~= 1 then
-		error("invalid payload length")
-	end
-
-	if payload[1] == 0x01 then
-		return { led = true }
-	end
-
-	return { led = false }
-end
-
 function M.encode_state(payload)
 	if payload.led == true then
 		return { 0x01 }

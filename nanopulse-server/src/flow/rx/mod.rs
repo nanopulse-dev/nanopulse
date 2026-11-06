@@ -10,6 +10,7 @@ use crate::region;
 use crate::storage::gateway;
 
 mod activation_request;
+mod configuration;
 mod key_exchange_request;
 mod state;
 mod telemetry;
@@ -58,6 +59,7 @@ pub async fn deduplicate_and_handle(gateway_name: &str, rx_pl: &RxEvent) -> Resu
         FrameType::ActivationRequest => activation_request::Flow::new(dedup)?.handle().await,
         FrameType::Telemetry => telemetry::Flow::new(dedup)?.handle().await,
         FrameType::State => state::Flow::new(dedup)?.handle().await,
+        FrameType::Configuration => configuration::Flow::new(dedup)?.handle().await,
         _ => {
             warn!(frame_type = ?dedup.frame.frame_type(), "Invalid frame-type received");
         }

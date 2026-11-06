@@ -5,7 +5,6 @@ use rand_core::RngCore;
 
 use nanopulse::frames::{
     Frame, FrameType, Payload, activation_request, activation_response, key_exchange_request,
-    state, telemetry,
 };
 use nanopulse::keys;
 
@@ -254,23 +253,43 @@ impl<
         Ok(())
     }
 
-    pub async fn send_telemetry(&mut self, mut pl: telemetry::Telemetry) -> Result<(), Error> {
+    pub async fn send(&mut self, mut pl: Payload) -> Result<(), Error> {
         if !self.session.is_activated() {
             error!("device must be activated first");
             return Err(Error::NotActivated);
         }
 
-        info!("starting telemetry");
-        pl.short_id = self.root_security.short_id;
-        pl.counter = self.session.counter_up;
-        self.session.counter_up += 1;
+        let frame_type = pl.frame_type();
+        info!("constructing {} frame", frame_type);
+
+        // set the short_id + counter value
+        match &mut pl {
+            Payload::Telemetry(pl) => {
+                pl.short_id = self.root_security.short_id;
+                pl.counter = self.session.get_next_counter_up();
+            }
+            Payload::State(pl) => {
+                pl.short_id = self.root_security.short_id;
+                pl.counter = self.session.get_next_counter_up();
+            }
+            Payload::Configuration(pl) => {
+                pl.short_id = self.root_security.short_id;
+                pl.counter = self.session.get_next_counter_up();
+            }
+            _ => return Err(Error::InvalidPayload),
+        }
+
+        // construct the frame
+        let mut f = Frame {
+            payload: pl,
+            mic: None,
+        };
 
         let tx_ch = self.get_random_tx_channel();
-        let enc_key =
-            keys::get_encryption_key(&self.session.session_root_key, FrameType::Telemetry, false);
+        let enc_key = keys::get_encryption_key(&self.session.session_root_key, frame_type, false);
         let mic_key = keys::get_mic_key(
             &self.session.session_root_key,
-            FrameType::Telemetry,
+            frame_type,
             tx_ch as u8,
             self.config.data_rate as u8,
         );
@@ -279,23 +298,19 @@ impl<
         debug!("enc_key: {:02x}", enc_key);
         debug!("mic_key: {:02x}", mic_key);
 
-        let mut pl = Frame {
-            payload: Payload::Telemetry(pl),
-            mic: None,
-        };
-        pl.encrypt(&enc_key).map_err(|e| {
+        f.encrypt(&enc_key).map_err(|e| {
             error!("encrypt error: {}", e);
             Error::CryptoError
         })?;
-        pl.set_mic(&mic_key).map_err(|e| {
+        f.set_mic(&mic_key).map_err(|e| {
             error!("set mic error: {}", e);
             Error::CryptoError
         })?;
 
-        let pl = Vec::try_from(&pl).map_err(|_| Error::HeaplessVec)?;
+        let b = Vec::try_from(&f).map_err(|_| Error::HeaplessVec)?;
         self.rx_dr = self.region.uplink_downlink_data_rate_mapping[self.config.data_rate];
         self.rx_ch = self.region.uplink_downlink_channel_mapping[tx_ch];
-        info!("sending telemetry, {:02x}", pl.as_slice());
+        info!("sending {}: {:02x}", frame_type, b.as_slice());
 
         self.rx_len = self
             .radio
@@ -304,69 +319,7 @@ impl<
                 self.region.downlink_channels[self.rx_ch],
                 &self.region.data_rates[self.config.data_rate],
                 &self.region.data_rates[self.rx_dr],
-                &pl,
-                &mut self.rx_buffer,
-                Duration::from_millis(
-                    self.region.timing_multiplier_ms * self.session.rx_window_delay as u64,
-                ),
-            )
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn send_state(&mut self, mut pl: state::State) -> Result<(), Error> {
-        if !self.session.is_activated() {
-            error!("device must be activated first");
-            return Err(Error::NotActivated);
-        }
-
-        info!("starting state");
-        pl.is_resp = matches!(pl.payload, state::Payload::Response(_));
-        pl.counter = self.session.counter_up;
-        pl.short_id = self.root_security.short_id;
-        self.session.counter_up += 1;
-
-        let tx_ch = self.get_random_tx_channel();
-        let enc_key =
-            keys::get_encryption_key(&self.session.session_root_key, FrameType::State, false);
-        let mic_key = keys::get_mic_key(
-            &self.session.session_root_key,
-            FrameType::State,
-            tx_ch as u8,
-            self.config.data_rate as u8,
-        );
-
-        debug!("session_root_key: {:02x}", self.session.session_root_key);
-        debug!("enc_key: {:02x}", enc_key);
-        debug!("mic_key: {:02x}", mic_key);
-
-        let mut pl = Frame {
-            payload: Payload::State(pl),
-            mic: None,
-        };
-        pl.encrypt(&enc_key).map_err(|e| {
-            error!("encrypt error: {}", e);
-            Error::CryptoError
-        })?;
-        pl.set_mic(&mic_key).map_err(|e| {
-            error!("set mic error: {}", e);
-            Error::CryptoError
-        })?;
-        let pl = Vec::try_from(&pl).map_err(|_| Error::HeaplessVec)?;
-
-        self.rx_dr = self.region.uplink_downlink_data_rate_mapping[self.config.data_rate];
-        self.rx_ch = self.region.uplink_downlink_channel_mapping[tx_ch];
-
-        info!("sending state: {:02x}", pl.as_slice());
-        self.rx_len = self
-            .radio
-            .send_sleep_receive(
-                self.region.uplink_channels[tx_ch],
-                self.region.downlink_channels[self.rx_ch],
-                &self.region.data_rates[self.config.data_rate],
-                &self.region.data_rates[self.rx_dr],
-                &pl,
+                &b,
                 &mut self.rx_buffer,
                 Duration::from_millis(
                     self.region.timing_multiplier_ms * self.session.rx_window_delay as u64,
@@ -551,13 +504,21 @@ impl<
                             self.session.counter_down = pl.counter + 1;
                             true
                         } else {
-                            error!("invalid State counter");
+                            false
+                        }
+                    }
+                    Payload::Configuration(pl) => {
+                        if pl.counter >= self.session.counter_down {
+                            self.session.counter_down = pl.counter + 1;
+                            true
+                        } else {
                             false
                         }
                     }
                     _ => false,
                 };
                 if !counter_ok {
+                    error!("invalid {} frame counter", resp.frame_type());
                     return Err(Error::CounterError);
                 }
 

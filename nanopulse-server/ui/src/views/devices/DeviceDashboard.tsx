@@ -5,6 +5,7 @@ import type { Device, Workspace, Profile } from "../../storage/types";
 import { formatDateTime } from "../helpers";
 import { DeviceTelemetry } from "./DeviceTelemetry";
 import { DeviceState } from "./DeviceState";
+import { DeviceConfiguration } from "./DeviceConfiguration";
 
 interface IProps {
   device: Device;
@@ -15,11 +16,14 @@ interface IProps {
 export function DeviceDashboard(props: IProps) {
   let telemetry: ReactElement = <></>;
   let state: ReactElement = <></>;
+  let configuration: ReactElement = <></>;
 
   if (props.profile) {
     let t = props.device.telemetry as Map<string, any> | undefined;
     let s = props.device.state as Map<string, any> | undefined;
     let sd = props.device.state_desired as Map<string, any> | undefined;
+    let c = props.device.configuration as Map<string, any> | undefined;
+    let cd = props.device.configuration_desired as Map<string, any> | undefined;
 
     telemetry = <DeviceTelemetry profile={props.profile} telemetry={t} />;
     state = (
@@ -29,6 +33,15 @@ export function DeviceDashboard(props: IProps) {
         profile={props.profile}
         state={s}
         state_desired={sd}
+      />
+    );
+    configuration = (
+      <DeviceConfiguration
+        workspace={props.workspace}
+        device={props.device}
+        profile={props.profile}
+        configuration={c}
+        configuration_desired={cd}
       />
     );
   }
@@ -76,6 +89,7 @@ export function DeviceDashboard(props: IProps) {
       </Grid.Col>
       {telemetry}
       {state}
+      {configuration}
     </Grid>
   );
 }

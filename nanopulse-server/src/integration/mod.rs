@@ -87,6 +87,13 @@ pub struct StateEvent {
 }
 
 #[derive(Default, Debug, Clone, Serialize)]
+pub struct ConfigurationEvent {
+    pub timestamp: DateTime<Utc>,
+    pub device_info: DeviceInfo,
+    pub configuration: serde_json::Value,
+}
+
+#[derive(Default, Debug, Clone, Serialize)]
 pub struct ErrorEvent {
     pub timestamp: DateTime<Utc>,
     pub device_info: DeviceInfo,
@@ -100,6 +107,7 @@ pub trait Integration {
     async fn activation(&self, pl: &ActivationEvent) -> Result<()>;
     async fn telemetry(&self, pl: &TelemetryEvent) -> Result<()>;
     async fn state(&self, pl: &StateEvent) -> Result<()>;
+    async fn configuration(&self, pl: &ConfigurationEvent) -> Result<()>;
     async fn error(&self, pl: &ErrorEvent) -> Result<()>;
 }
 
@@ -202,6 +210,33 @@ async fn _state_event(pl: &StateEvent) -> Result<()> {
 
     for i in ints.iter() {
         futures.push(i.state(pl));
+    }
+
+    for e in join_all(futures).await {
+        e?;
+    }
+
+    Ok(())
+}
+
+pub async fn configuration_event(pl: &ConfigurationEvent) {
+    tokio::spawn({
+        let pl = pl.clone();
+
+        async move {
+            if let Err(e) = _configuration_event(&pl).await {
+                warn!(device_name = %pl.device_info.device_name, device_short_id = %pl.device_info.device_short_id, error = %e, "configuration integration event error");
+            }
+        }
+    });
+}
+
+async fn _configuration_event(pl: &ConfigurationEvent) -> Result<()> {
+    let ints = GLOBAL_INTEGRATIONS.read().await;
+    let mut futures = Vec::new();
+
+    for i in ints.iter() {
+        futures.push(i.configuration(pl));
     }
 
     for e in join_all(futures).await {

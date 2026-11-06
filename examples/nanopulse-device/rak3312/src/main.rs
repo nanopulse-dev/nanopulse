@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use core::sync::atomic::{AtomicU32, Ordering};
+
 use heapless::index_map::FnvIndexMap;
 
 // logging
@@ -33,7 +35,7 @@ use nanopulse_device::lora_phy::{
 };
 
 // nanopulse
-use nanopulse::frames::{Buffer, Payload, telemetry};
+use nanopulse::frames::{Buffer, Payload, configuration, telemetry};
 use nanopulse_device::context::{
     Counters, RootSecurity, get_counters, get_root_security, write_counters, write_root_security,
 };
@@ -52,6 +54,8 @@ type IvType = GenericSx126xInterfaceVariant<Output<'static>, Input<'static>>;
 type LoRaType = LoRa<Sx126x<SpiType, IvType, Sx1262>, Delay>;
 type FlashType = FlashStorage<'static>;
 type DeviceType = device::Device<LoRaType, EspRng, FlashType, 8, 8, 1, 6>;
+
+static TELEMETRY_INTERVAL: AtomicU32 = AtomicU32::new(30);
 
 #[esp_hal::main]
 async fn main(spawner: Spawner) {
@@ -146,6 +150,11 @@ async fn main(spawner: Spawner) {
         TX_CHANNEL.receiver()
     )));
 
+    spawner.spawn(unwrap!(downlink_handler_loop(
+        TX_CHANNEL.sender(),
+        RX_CHANNEL.receiver(),
+    )));
+
     spawner.spawn(unwrap!(telemetry_loop(
         TX_CHANNEL.sender(),
         wifi_controller
@@ -155,29 +164,21 @@ async fn main(spawner: Spawner) {
 #[embassy_executor::task]
 async fn device_loop(
     mut d: DeviceType,
-    _rx_sender: Sender<'static, CriticalSectionRawMutex, Payload, 1>,
+    rx_sender: Sender<'static, CriticalSectionRawMutex, Payload, 1>,
     tx_receiver: Receiver<'static, CriticalSectionRawMutex, Payload, 1>,
 ) {
     info!("starting device_loop");
     loop {
         match d.next().await {
-            Ok(Some(_pl)) => info!("received payload"),
+            Ok(Some(pl)) => {
+                info!("received {} frame", pl.frame_type());
+                rx_sender.send(pl.payload).await;
+            }
             Ok(None) => {
                 if let Ok(pl) = tx_receiver.try_receive() {
-                    match pl {
-                        Payload::Telemetry(pl) => {
-                            info!("sending telemetry payload");
-                            if let Err(e) = d.send_telemetry(pl).await {
-                                error!("send telemetry error: {}", e);
-                            }
-                        }
-                        Payload::State(pl) => {
-                            info!("sending state payload");
-                            if let Err(e) = d.send_state(pl).await {
-                                error!("send state error: {}", e);
-                            }
-                        }
-                        _ => {}
+                    info!("sending {} frame", pl.frame_type());
+                    if let Err(e) = d.send(pl).await {
+                        error!("send error: {}", e);
                     }
                 }
             }
@@ -191,6 +192,41 @@ async fn device_loop(
         }
 
         tx_receiver.ready_to_receive().await;
+    }
+}
+
+#[embassy_executor::task]
+async fn downlink_handler_loop(
+    tx_sender: Sender<'static, CriticalSectionRawMutex, Payload, 1>,
+    rx_receiver: Receiver<'static, CriticalSectionRawMutex, Payload, 1>,
+) {
+    info!("starting downlink_handler loop");
+    loop {
+        let pl = rx_receiver.receive().await;
+
+        if let Payload::Configuration(pl) = pl {
+            if let configuration::Payload::Request(config_pl) = pl.payload {
+                if config_pl.len() != 4 {
+                    warn!("invalid configuration payload length");
+                    continue;
+                }
+
+                let interval = u32::from_le_bytes(config_pl[0..4].try_into().unwrap());
+                TELEMETRY_INTERVAL.store(interval, Ordering::Relaxed);
+
+                // acknowledge config request
+                tx_sender
+                    .send(Payload::Configuration(configuration::Configuration {
+                        is_resp: true,
+                        payload: configuration::Payload::Response(configuration::ResponsePayload {
+                            request_counter: pl.counter as u16,
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }))
+                    .await;
+            }
+        }
     }
 }
 
@@ -231,6 +267,9 @@ async fn telemetry_loop(
             }))
             .await;
 
-        Timer::after(Duration::from_secs(30)).await;
+        Timer::after(Duration::from_secs(
+            TELEMETRY_INTERVAL.load(Ordering::Relaxed).into(),
+        ))
+        .await;
     }
 }

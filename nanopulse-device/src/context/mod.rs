@@ -32,6 +32,12 @@ impl Session {
         defmt::info!("check has session_root_key: {:02x}", self.session_root_key);
         self.session_root_key != [0u8; 32]
     }
+
+    pub fn get_next_counter_up(&mut self) -> u32 {
+        let cnt = self.counter_up;
+        self.counter_up += 1;
+        cnt
+    }
 }
 
 pub struct RootSecurity {
