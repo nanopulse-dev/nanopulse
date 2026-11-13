@@ -32,7 +32,7 @@ export function formatDateTime(input: string | undefined | null): string {
 
   const yyyy = dt.getFullYear();
   const mo = pad(dt.getMonth() + 1);
-  const dd = pad(dt.getDay());
+  const dd = pad(dt.getUTCDate());
 
   return `${yyyy}-${mo}-${dd} ${hh}:${mm}:${ss}`;
 }
