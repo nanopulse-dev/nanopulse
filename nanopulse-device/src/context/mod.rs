@@ -118,7 +118,7 @@ pub struct Counters {
 }
 
 impl Counters {
-    pub const LENGTH: usize = 12;
+    pub const LENGTH: usize = 16; // STM32 requires multiple of 8
 }
 
 impl From<&Counters> for [u8; Counters::LENGTH] {

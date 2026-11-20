@@ -1,0 +1,12 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+  runner = "probe-rs run --chip STM32WLE5CC"
+
+[build]
+  target = "thumbv7em-none-eabi"
+
+[env]
+  DEFMT_LOG = "debug"
+
+[profile.release]
+  debug = true
+  strip = false

@@ -1,0 +1,21 @@
+MEMORY {
+  FLASH            : ORIGIN = 0x08000000, LENGTH = 256K - 4K
+  ROOT_SECURITY    : ORIGIN = ORIGIN(FLASH) + LENGTH(FLASH), LENGTH = 2K
+  COUNTERS         : ORIGIN = ORIGIN(ROOT_SECURITY) + LENGTH(ROOT_SECURITY), LENGTH = 2K
+  SHARED_RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 128
+  RAM (rwx)        : ORIGIN = 0x20000080, LENGTH = 64K - 128
+}
+
+__root_security_start = ORIGIN(ROOT_SECURITY) - 0x08000000;
+__root_security_end   = ORIGIN(ROOT_SECURITY) + LENGTH(ROOT_SECURITY) - 0x08000000;
+
+__counters_start      = ORIGIN(COUNTERS) - 0x08000000;
+__counters_end        = ORIGIN(COUNTERS) + LENGTH(COUNTERS) - 0x08000000;
+
+SECTIONS {
+  .shared_data :
+  {
+    *(.shared_data)
+  } > SHARED_RAM
+}
+

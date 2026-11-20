@@ -63,7 +63,7 @@ where
     return;
 
     let (start, end) = get_counters_start_end();
-    info!("writing coutners, start: {}, end: {}", start, end);
+    info!("writing counters, start: {}, end: {}", start, end);
     flash.erase(start, end).expect("erase flash");
     flash
         .write(

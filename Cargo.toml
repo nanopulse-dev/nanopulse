@@ -22,6 +22,7 @@
   ]
 
   exclude = [
+    "examples/nanopulse-device/rak11162",
     "examples/nanopulse-device/rak3312",
     "examples/nanopulse-device/rp-pico",
     "examples/nanopulse-device/rp-pico2w",
