@@ -29,11 +29,6 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v7
-      - 
-        name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          nix_path: nixpkgs=channel:nixos-26.05
       -
         name: Cargo cache
         uses: actions/cache@v6
@@ -43,11 +38,12 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.cache/mise/downloads-cas
             target/
-          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
-      -
-        name: Install dev dependencies
-        run: nix-shell --command "just install-dev-dependencies"
+          key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-${{ hashFiles('mise.lock') }}
+      - uses: jdx/mise-action@v5
+        with:
+          cache: false
       -
         name: Run tests
-        run: nix-shell --command "just test"
+        run: mise run test

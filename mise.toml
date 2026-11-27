@@ -1,0 +1,32 @@
+[bootstrap.packages]
+  "pacman:rustup" = "latest"
+  "apt:rustup" = "latest"
+
+[tools]
+  node = "26"
+  pnpm = "12"
+  sqlite = "3"
+  dprint = "0.65"
+  jq = "1.8"
+  just = "1.59"
+  rust = { version = "1.99.1", components = [
+    "rustfmt",
+    "clippy",
+    "rust-analyzer",
+  ] }
+  "cargo:sqlx-cli" = { version = "0.9", default-features = false, features = [
+    "sqlite",
+    "sqlx-toml",
+  ] }
+  "cargo:mdbook" = { version = "0.5.4" }
+  "cargo:mdbook-mermaid" = { version = "0.17" }
+  "cargo:espup" = { version = "0.19" }
+  "cargo:https://github.com/cross-rs/cross" = { version = "rev:452dc27a11d4f58d65309f8455c5cf7558f60513", crate = "cross" }
+
+[env]
+  _.source = "~/export-esp.sh"
+  DATABASE_URL = "sqlite://$PWD/nanopulse-server/nanopulse_test.sqlite"
+
+[tasks.test]
+  description = "run all tests"
+  run = "just test"

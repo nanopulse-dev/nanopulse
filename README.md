@@ -30,28 +30,36 @@ documentation and pre-compiled binaries.
 
 ### Requirements
 
-A [Nix](https://nixos.org/download.html) environment is provided, which will
-automatically provide an environment with all development dependencies
-available. For this, you need:
+#### Mise
 
-- [Nix](https://nixos.org/download.html)
-- [Docker](https://docs.docker.com/get-started/) (for cross-compiling using
-  `cross`)
+[Mise](https://mise.jdx.dev/) is used for managing the development environment
+dependencies. It handles both installing packages using your distro's
+package-manager (currently `apt` and `pacman`) and installing per-project
+dependencies (downloaded to `~/.local/share/mise` by default).
+
+- [Installing Mise](https://mise.jdx.dev/installing-mise.html)
+- [Shell setup](https://mise.jdx.dev/shell-setup.html)
+
+#### Docker
+
+Docker is used for cross-compiling binaries.
+
+- https://docs.docker.com/get-started/
 
 Alternatively, you can install all development requirements manually. Please
 refer to the packages listed in `shell.nix`.
 
-To activate the Nix shell, execute at the root of this repository:
+### Install dependencies
 
-```bash
-nix-shell
+Please refer to the `mise.toml` file for dependencies that will be installed.
+Alternatively, you can install these dependencies yourself.
+
 ```
+# Install both [bootstrap.packages] and [tools]
+mise bootstrap
 
-You also need to install `cross` (which will be installed to `.cargo/bin`,
-relative to the root of this repository).
-
-```bash
-just install-dev-dependencies
+# Install only [tools]
+mise install
 ```
 
 ### Available commands
