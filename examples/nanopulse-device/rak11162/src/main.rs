@@ -78,7 +78,10 @@ pub enum EspError {
     UnexpectedResponse,
 }
 
-#[embassy_executor::main]
+#[embassy_executor::main(
+    executor = "embassy_stm32::executor::Executor",
+    entry = "cortex_m_rt::entry"
+)]
 async fn main(spawner: Spawner) {
     info!("init");
 
@@ -88,7 +91,7 @@ async fn main(spawner: Spawner) {
         config.rcc.msi = Some(MSIRange::RANGE48M);
         config.rcc.sys = Sysclk::MSI;
         config.rcc.mux.rngsel = mux::Rngsel::MSI;
-        config.enable_debug_during_sleep = true;
+        config.enable_debug_during_sleep = false;
     }
     let p = embassy_stm32::init(config);
     let mut rng = Rng::new(p.RNG, Irqs);
@@ -121,9 +124,10 @@ async fn main(spawner: Spawner) {
     let iv: IvType =
         Stm32wlInterfaceVariant::new(Irqs, use_high_power_pa, Some(rx_pin), Some(tx_pin), None)
             .unwrap();
-    let lora: LoRaType = LoRa::new(Sx126x::new(spi, iv, config), true, Delay)
+    let mut lora: LoRaType = LoRa::new(Sx126x::new(spi, iv, config), true, Delay)
         .await
         .unwrap();
+    lora.sleep(false).await.unwrap();
 
     info!("reading context from flash memory");
     let mut flash: FlashType = Flash::new_blocking(p.FLASH);

@@ -21,11 +21,7 @@
   embedded-io-async = "0.7"
   embedded-storage = "0.3"
 
-  embassy-executor = { version = "0.10", features = [
-    "defmt",
-    "executor-thread",
-    "platform-cortex-m",
-  ] }
+  embassy-executor = { version = "0.10", features = ["defmt"] }
   embassy-sync = { version = "0.8" }
   embassy-time = { version = "0.5", features = [
     "defmt",
@@ -37,6 +33,9 @@
     "stm32wle5cc",
     "time-driver-any",
     "unstable-pac",
+    "low-power",
+    "gpio-init-analog",
+    "executor-thread",
   ] }
   cortex-m = { version = "0.7", features = [
     "inline-asm",
