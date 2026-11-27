@@ -36,6 +36,12 @@ where
             })?;
         debug!("create_tx_packet_params ok");
 
+        self.enter_standby().await.map_err(|e| {
+            error!("enter_standby error: {}", e);
+            Error::RadioError
+        })?;
+        debug!("enter_standby ok");
+
         self.prepare_for_tx(&mod_params, &mut tx_params, 14, buf)
             .await
             .map_err(|e| {
@@ -49,6 +55,12 @@ where
             Error::RadioError
         })?;
         debug!("tx ok");
+
+        self.sleep(false).await.map_err(|e| {
+            error!("sleep error: {}", e);
+            Error::RadioError
+        })?;
+        debug!("sleep ok");
 
         Ok(())
     }
@@ -107,6 +119,12 @@ where
         let symbol_margin = Self::PRE_RX_MARGIN_MS + clock_drift + clock_drift;
         let symbols_margin = rx_bb_params.delay_in_symbols(symbol_margin.as_millis() as u32);
 
+        self.enter_standby().await.map_err(|e| {
+            error!("enter_standby error: {}", e);
+            Error::RadioError
+        })?;
+        debug!("enter_standby ok");
+
         self.prepare_for_tx(&tx_mod_params, &mut tx_params, 14, tx_buf)
             .await
             .map_err(|e| {
@@ -117,6 +135,11 @@ where
 
         self.tx().await.map_err(|e| {
             error!("tx error: {}", e);
+            Error::RadioError
+        })?;
+
+        self.sleep(true).await.map_err(|e| {
+            error!("enter warm sleep error: {}", e);
             Error::RadioError
         })?;
 
@@ -135,7 +158,7 @@ where
             Error::RadioError
         })?;
 
-        match self.rx(&rx_params, rx_buf).await {
+        let res = match self.rx(&rx_params, rx_buf).await {
             Ok((rx_len, _rx_status)) => {
                 info!("rx ok");
                 Ok(rx_len)
@@ -144,6 +167,13 @@ where
                 warn!("rx error: {}", e);
                 Ok(0)
             }
-        }
+        };
+
+        self.sleep(false).await.map_err(|e| {
+            error!("sleep error: {}", e);
+            Error::RadioError
+        })?;
+
+        res
     }
 }
