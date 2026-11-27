@@ -46,9 +46,6 @@ Docker is used for cross-compiling binaries.
 
 - https://docs.docker.com/get-started/
 
-Alternatively, you can install all development requirements manually. Please
-refer to the packages listed in `shell.nix`.
-
 ### Install dependencies
 
 Please refer to the `mise.toml` file for dependencies that will be installed.
