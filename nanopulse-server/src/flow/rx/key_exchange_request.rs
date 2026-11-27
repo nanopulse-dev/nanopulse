@@ -5,7 +5,7 @@ use anyhow::{Result, anyhow};
 use chrono::Utc;
 use tracing::{Instrument, Level, error, info, span, trace, warn};
 
-use nanopulse::frames::{self, FrameType, key_exchange_request, key_exchange_response};
+use nanopulse::frames::{self, key_exchange_request, key_exchange_response};
 use nanopulse::keypair;
 use nanopulse::keys;
 use nanopulse::x25519_dalek::{PublicKey, StaticSecret};
@@ -144,7 +144,7 @@ impl Flow {
         )
         .await?;
 
-        let mic_key = keys::get_mic_key(&root, FrameType::KeyExchangeResponse, dl_ch, dl_dr);
+        let mic_key = keys::get_mic_key(&root);
         let mut pl = frames::Frame {
             payload: frames::Payload::KeyExchangeResponse(
                 key_exchange_response::KeyExchangeResponse {
@@ -154,7 +154,7 @@ impl Flow {
             ),
             mic: None,
         };
-        pl.set_mic(&mic_key)?;
+        pl.set_mic(&mic_key, dl_ch, dl_dr)?;
 
         let tx_cmd = TxCommand {
             id: 0,

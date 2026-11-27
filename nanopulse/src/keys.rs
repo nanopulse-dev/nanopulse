@@ -2,8 +2,6 @@ use hkdf::Hkdf;
 use sha2::Sha256;
 use x25519_dalek::{PublicKey, StaticSecret};
 
-use crate::frames::FrameType;
-
 pub enum Error {
     InvalidSharedKey,
 }
@@ -62,37 +60,20 @@ pub fn get_session_root_key(
     expand_key(root_key, &info)
 }
 
-/// This function generates the encryption key for the given parameters.
+/// Get key for encryption use.
 ///
 /// key must be set to the session_root_key, except for the Activation Request, in which case no
 /// session_root_key has been established yet and the root_key must be used.
-pub fn get_encryption_key(key: &[u8; 32], frame_type: FrameType, is_downlink: bool) -> [u8; 32] {
-    let mut info = [0u8; 3];
-    info[0] = KeyUsage::Encryption.into();
-    info[1] = frame_type.into();
-    if is_downlink {
-        info[2] = 0x01;
-    }
-    expand_key(key, &info)
+pub fn get_encryption_key(key: &[u8; 32]) -> [u8; 32] {
+    expand_key(key, &[KeyUsage::Encryption.into()])
 }
 
-/// This function generates the MIC key fr the given parameters.
+/// Get key for mic calculation use.
 ///
 /// key must be set to the session_root_key, except for the Activation Request, in which case no
 /// session_root_key has been established yet and the root_key must be used.
-pub fn get_mic_key(
-    key: &[u8; 32],
-    frame_type: FrameType,
-    tx_channel: u8,
-    tx_datarate: u8,
-) -> [u8; 32] {
-    let mut info = [0u8; 4];
-    info[0] = KeyUsage::Mic.into();
-    info[1] = frame_type.into();
-    info[2] = tx_channel;
-    info[3] = tx_datarate;
-
-    expand_key(key, &info)
+pub fn get_mic_key(key: &[u8; 32]) -> [u8; 32] {
+    expand_key(key, &[KeyUsage::Mic.into()])
 }
 
 fn expand_key(prk: &[u8], info: &[u8]) -> [u8; 32] {
@@ -137,35 +118,25 @@ mod test {
 
     #[test]
     fn test_get_encryption_key() {
-        let out = get_encryption_key(&TEST_KEY, FrameType::Telemetry, false);
+        let out = get_encryption_key(&TEST_KEY);
         assert_eq!(
             [
-                129, 10, 48, 12, 147, 102, 218, 146, 19, 189, 67, 219, 68, 152, 128, 98, 26, 125,
-                243, 137, 90, 250, 142, 8, 12, 69, 47, 98, 71, 37, 115, 236
+                129, 6, 182, 84, 31, 127, 16, 73, 40, 169, 129, 139, 30, 58, 93, 251, 24, 202, 187,
+                223, 52, 237, 81, 68, 171, 49, 69, 144, 143, 148, 154, 62
             ],
             out
         );
-
-        assert_ne!(
-            out,
-            get_encryption_key(&TEST_KEY, FrameType::Telemetry, true)
-        );
-        assert_ne!(out, get_encryption_key(&TEST_KEY, FrameType::State, false));
     }
 
     #[test]
     fn test_get_mic_key() {
-        let out = get_mic_key(&TEST_KEY, FrameType::Telemetry, 1, 2);
+        let out = get_mic_key(&TEST_KEY);
         assert_eq!(
             [
-                58, 22, 231, 179, 120, 210, 217, 26, 168, 56, 122, 232, 129, 194, 181, 134, 95,
-                231, 12, 145, 8, 79, 21, 79, 68, 247, 29, 111, 175, 53, 164, 83
+                167, 81, 153, 67, 37, 57, 146, 66, 144, 42, 245, 24, 65, 152, 254, 187, 116, 19,
+                33, 28, 187, 86, 232, 170, 64, 105, 235, 6, 63, 242, 151, 64
             ],
             out
         );
-
-        assert_ne!(out, get_mic_key(&TEST_KEY, FrameType::Telemetry, 2, 2));
-        assert_ne!(out, get_mic_key(&TEST_KEY, FrameType::Telemetry, 1, 3));
-        assert_ne!(out, get_mic_key(&TEST_KEY, FrameType::State, 1, 2));
     }
 }

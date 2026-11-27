@@ -163,14 +163,24 @@ impl Frame {
         self.payload.frame_type()
     }
 
-    pub fn set_mic(&mut self, mic_key: &[u8; 32]) -> Result<(), Error> {
-        self.mic = Some(self.calculate_mic(mic_key)?);
+    pub fn set_mic(
+        &mut self,
+        mic_key: &[u8; 32],
+        tx_channel: u8,
+        tx_data_rate: u8,
+    ) -> Result<(), Error> {
+        self.mic = Some(self.calculate_mic(mic_key, tx_channel, tx_data_rate)?);
         Ok(())
     }
 
-    pub fn validate_mic(&self, mic_key: &[u8; 32]) -> Result<bool, Error> {
+    pub fn validate_mic(
+        &self,
+        mic_key: &[u8; 32],
+        tx_channel: u8,
+        tx_data_rate: u8,
+    ) -> Result<bool, Error> {
         if let Some(mic) = &self.mic {
-            let calculated_mic = self.calculate_mic(mic_key)?;
+            let calculated_mic = self.calculate_mic(mic_key, tx_channel, tx_data_rate)?;
             Ok(mic == &calculated_mic)
         } else {
             Ok(false)
@@ -185,7 +195,12 @@ impl Frame {
         self.payload.decrypt(enc_key)
     }
 
-    fn calculate_mic(&self, mic_key: &[u8; 32]) -> Result<[u8; 4], Error> {
+    fn calculate_mic(
+        &self,
+        mic_key: &[u8; 32],
+        tx_channel: u8,
+        tx_data_rate: u8,
+    ) -> Result<[u8; 4], Error> {
         let mut mac = Hmac::<Sha256>::new_from_slice(mic_key).map_err(|_| Error::NotEnoughBytes)?;
 
         let b: &[u8] = match &self.payload {
@@ -198,6 +213,7 @@ impl Frame {
             _ => return Err(Error::InvalidPayload),
         };
 
+        mac.update(&[tx_channel, tx_data_rate]);
         mac.update(b);
         let result = mac.finalize().into_bytes();
         Ok(result[0..4].try_into().unwrap())
@@ -286,6 +302,16 @@ impl TryFrom<Frame> for std::vec::Vec<u8> {
     }
 }
 
+pub fn get_chacha20_iv(frame_type: FrameType, is_downlink: bool, counter: u32) -> [u8; 12] {
+    let mut b = [0u8; 12];
+    b[0] = frame_type.into();
+    if is_downlink {
+        b[1] = 0x01;
+    }
+    b[8..12].copy_from_slice(&counter.to_le_bytes());
+    b
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -328,13 +354,13 @@ mod test {
             }),
             mic: None,
         };
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
 
         let b: Vec<_> = (&pl).try_into().unwrap();
         assert_eq!(
             vec![
                 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-                23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 57, 48, 0, 0, 67, 109, 38, 177
+                23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 57, 48, 0, 0, 151, 160, 134, 85
             ],
             b
         );
@@ -367,7 +393,7 @@ mod test {
                     short_id: [1, 2, 3, 4],
                     counter: 12345,
                     profile_info: activation_request::ProfileInfo::Encrypted([
-                        188, 95, 115, 168, 116, 168, 85, 88
+                        232, 191, 82, 181, 101, 120, 40, 216,
                     ]),
                 }),
                 mic: None,
@@ -375,17 +401,17 @@ mod test {
             pl
         );
 
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
         assert_eq!(
             Frame {
                 payload: Payload::ActivationRequest(activation_request::ActivationRequest {
                     short_id: [1, 2, 3, 4],
                     counter: 12345,
                     profile_info: activation_request::ProfileInfo::Encrypted([
-                        188, 95, 115, 168, 116, 168, 85, 88
+                        232, 191, 82, 181, 101, 120, 40, 216,
                     ]),
                 }),
-                mic: Some([117, 61, 242, 51]),
+                mic: Some([115, 19, 205, 77]),
             },
             pl
         );
@@ -393,7 +419,8 @@ mod test {
         let b: Vec<_> = (&pl).try_into().unwrap();
         assert_eq!(
             vec![
-                32, 1, 2, 3, 4, 57, 48, 0, 0, 188, 95, 115, 168, 116, 168, 85, 88, 117, 61, 242, 51
+                32, 1, 2, 3, 4, 57, 48, 0, 0, 232, 191, 82, 181, 101, 120, 40, 216, 115, 19, 205,
+                77,
             ],
             b
         );
@@ -423,27 +450,27 @@ mod test {
             Frame {
                 payload: Payload::ActivationResponse(activation_response::ActivationResponse {
                     counter: 12345,
-                    network_info: activation_response::NetworkInfo::Encrypted([30, 92]),
+                    network_info: activation_response::NetworkInfo::Encrypted([148, 104]),
                 }),
                 mic: None,
             },
             pl
         );
 
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
         assert_eq!(
             Frame {
                 payload: Payload::ActivationResponse(activation_response::ActivationResponse {
                     counter: 12345,
-                    network_info: activation_response::NetworkInfo::Encrypted([30, 92]),
+                    network_info: activation_response::NetworkInfo::Encrypted([148, 104]),
                 }),
-                mic: Some([119, 157, 112, 27]),
+                mic: Some([115, 107, 125, 26]),
             },
             pl
         );
 
         let b: Vec<_> = (&pl).try_into().unwrap();
-        assert_eq!(vec![48, 57, 48, 0, 0, 30, 92, 119, 157, 112, 27], b);
+        assert_eq!(vec![48, 57, 48, 0, 0, 148, 104, 115, 107, 125, 26], b);
 
         let pl_new = Frame::try_from(b.as_ref()).unwrap();
         assert_eq!(pl, pl_new);
@@ -466,22 +493,22 @@ mod test {
                 payload: Payload::Telemetry(telemetry::Telemetry {
                     short_id: [1, 2, 3, 4],
                     counter: 12345,
-                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                    payload: [115, 85, 57, 189, 199].try_into().unwrap(),
                 }),
                 mic: None,
             },
             pl
         );
 
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
         assert_eq!(
             Frame {
                 payload: Payload::Telemetry(telemetry::Telemetry {
                     short_id: [1, 2, 3, 4],
                     counter: 12345,
-                    payload: [188, 95, 115, 168, 112].try_into().unwrap(),
+                    payload: [115, 85, 57, 189, 199].try_into().unwrap(),
                 }),
-                mic: Some([13, 177, 155, 132]),
+                mic: Some([25, 59, 119, 204]),
             },
             pl
         );
@@ -489,7 +516,7 @@ mod test {
         let b: Vec<_> = (&pl).try_into().unwrap();
         assert_eq!(
             vec![
-                96, 1, 2, 3, 4, 57, 48, 0, 0, 188, 95, 115, 168, 112, 13, 177, 155, 132
+                96, 1, 2, 3, 4, 57, 48, 0, 0, 115, 85, 57, 189, 199, 25, 59, 119, 204,
             ],
             b
         );
@@ -520,7 +547,7 @@ mod test {
                     is_resp: false,
                     counter: 12345,
                     payload: state::Payload::Encrypted(
-                        [188, 95, 115, 168, 112].try_into().unwrap()
+                        [203, 115, 248, 164, 234].try_into().unwrap()
                     ),
                 }),
                 mic: None,
@@ -528,7 +555,7 @@ mod test {
             pl
         );
 
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
         assert_eq!(
             Frame {
                 payload: Payload::State(state::State {
@@ -537,10 +564,10 @@ mod test {
                     is_resp: false,
                     counter: 12345,
                     payload: state::Payload::Encrypted(
-                        [188, 95, 115, 168, 112].try_into().unwrap()
+                        [203, 115, 248, 164, 234].try_into().unwrap()
                     ),
                 }),
-                mic: Some([188, 224, 52, 72]),
+                mic: Some([198, 162, 237, 70]),
             },
             pl
         );
@@ -548,7 +575,7 @@ mod test {
         let b: Vec<_> = (&pl).try_into().unwrap();
         assert_eq!(
             vec![
-                113, 1, 2, 3, 4, 57, 48, 0, 0, 188, 95, 115, 168, 112, 188, 224, 52, 72
+                113, 1, 2, 3, 4, 57, 48, 0, 0, 203, 115, 248, 164, 234, 198, 162, 237, 70
             ],
             b
         );
@@ -582,7 +609,7 @@ mod test {
                     is_resp: true,
                     counter: 12345,
                     payload: state::Payload::Encrypted(
-                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                        [243, 65, 250, 162, 236, 222, 191].try_into().unwrap()
                     ),
                 }),
                 mic: None,
@@ -590,7 +617,7 @@ mod test {
             pl
         );
 
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
         assert_eq!(
             Frame {
                 payload: Payload::State(state::State {
@@ -599,10 +626,10 @@ mod test {
                     is_resp: true,
                     counter: 12345,
                     payload: state::Payload::Encrypted(
-                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                        [243, 65, 250, 162, 236, 222, 191].try_into().unwrap()
                     ),
                 }),
-                mic: Some([166, 45, 83, 56]),
+                mic: Some([59, 160, 126, 10]),
             },
             pl
         );
@@ -610,7 +637,7 @@ mod test {
         let b: Vec<_> = (&pl).try_into().unwrap();
         assert_eq!(
             vec![
-                115, 1, 2, 3, 4, 57, 48, 0, 0, 132, 109, 113, 174, 118, 174, 81, 166, 45, 83, 56
+                115, 1, 2, 3, 4, 57, 48, 0, 0, 243, 65, 250, 162, 236, 222, 191, 59, 160, 126, 10,
             ],
             b
         );
@@ -641,7 +668,7 @@ mod test {
                     is_resp: false,
                     counter: 12345,
                     payload: configuration::Payload::Encrypted(
-                        [188, 95, 115, 168, 112].try_into().unwrap()
+                        [150, 61, 160, 101, 185].try_into().unwrap()
                     ),
                 }),
                 mic: None,
@@ -649,7 +676,7 @@ mod test {
             pl
         );
 
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
         assert_eq!(
             Frame {
                 payload: Payload::Configuration(configuration::Configuration {
@@ -658,10 +685,10 @@ mod test {
                     is_resp: false,
                     counter: 12345,
                     payload: configuration::Payload::Encrypted(
-                        [188, 95, 115, 168, 112].try_into().unwrap()
+                        [150, 61, 160, 101, 185].try_into().unwrap()
                     ),
                 }),
-                mic: Some([163, 108, 98, 204]),
+                mic: Some([160, 10, 179, 220]),
             },
             pl
         );
@@ -669,7 +696,7 @@ mod test {
         let b: Vec<_> = (&pl).try_into().unwrap();
         assert_eq!(
             vec![
-                129, 1, 2, 3, 4, 57, 48, 0, 0, 188, 95, 115, 168, 112, 163, 108, 98, 204
+                129, 1, 2, 3, 4, 57, 48, 0, 0, 150, 61, 160, 101, 185, 160, 10, 179, 220
             ],
             b
         );
@@ -703,7 +730,7 @@ mod test {
                     is_resp: true,
                     counter: 12345,
                     payload: configuration::Payload::Encrypted(
-                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                        [174, 15, 162, 99, 191, 168, 237].try_into().unwrap()
                     ),
                 }),
                 mic: None,
@@ -711,7 +738,7 @@ mod test {
             pl
         );
 
-        pl.set_mic(&TEST_KEY).unwrap();
+        pl.set_mic(&TEST_KEY, 1, 2).unwrap();
         assert_eq!(
             Frame {
                 payload: Payload::Configuration(configuration::Configuration {
@@ -720,10 +747,10 @@ mod test {
                     is_resp: true,
                     counter: 12345,
                     payload: configuration::Payload::Encrypted(
-                        [132, 109, 113, 174, 118, 174, 81].try_into().unwrap()
+                        [174, 15, 162, 99, 191, 168, 237].try_into().unwrap()
                     ),
                 }),
-                mic: Some([164, 38, 172, 248]),
+                mic: Some([10, 139, 115, 23]),
             },
             pl
         );
@@ -731,7 +758,7 @@ mod test {
         let b: Vec<_> = (&pl).try_into().unwrap();
         assert_eq!(
             vec![
-                131, 1, 2, 3, 4, 57, 48, 0, 0, 132, 109, 113, 174, 118, 174, 81, 164, 38, 172, 248,
+                131, 1, 2, 3, 4, 57, 48, 0, 0, 174, 15, 162, 99, 191, 168, 237, 10, 139, 115, 23,
             ],
             b
         );

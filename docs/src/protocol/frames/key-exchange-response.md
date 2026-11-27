@@ -39,17 +39,7 @@ Unique `u32` counter value. See also [Counter](../glossary/counter.md).
 
 ## MIC
 
-MIC calculated over all frame bytes, except the last 4 MIC bytes. See also
-[MIC](../glossary/mic.md).
+Please see:
 
-### MIC Key
-
-See also [Keys](../glossary/keys.md).
-
-- PRK: `Root Key`.
-
-- Info:
-
-| 1 byte                 | 1 byte              | 1 byte     | 1 byte       |
-| ---------------------- | ------------------- | ---------- | ------------ |
-| Key Usage MIC = `0x01` | Frame Type = `0x01` | Tx Channel | Tx Data-rate |
+- [MIC](../glossary/mic.md)
+- [Keys](../glossary/keys.md)

@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use chrono::Utc;
 use tracing::{Instrument, Level, error, info, span, trace, warn};
 
-use nanopulse::frames::{self, FrameType, configuration};
+use nanopulse::frames::{self, configuration};
 use nanopulse::keys;
 
 use crate::errors::Error;
@@ -82,14 +82,12 @@ impl Flow {
 
         info!(count = devices.len(), "devices found matching short_id");
         for device in &mut devices {
-            let mic_key = keys::get_mic_key(
-                device.session_root_key.as_ref(),
-                FrameType::Configuration,
+            let mic_key = keys::get_mic_key(device.session_root_key.as_ref());
+            if self.frame_set.frame.validate_mic(
+                &mic_key,
                 self.frame_set.ul_ch,
                 self.frame_set.ul_dr,
-            );
-
-            if self.frame_set.frame.validate_mic(&mic_key)? {
+            )? {
                 info!(id = device.id, "found matching device");
 
                 // This validates that the counter has incremented + immediately updates the
@@ -118,11 +116,7 @@ impl Flow {
     fn decrypt_payload(&mut self) -> Result<(), Error> {
         trace!("decrypt_payload fn");
 
-        let enc_key = keys::get_encryption_key(
-            self.device.session_root_key.as_ref(),
-            FrameType::Configuration,
-            false,
-        );
+        let enc_key = keys::get_encryption_key(self.device.session_root_key.as_ref());
         self.payload.decrypt(&enc_key)?;
 
         Ok(())

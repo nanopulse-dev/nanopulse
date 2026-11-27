@@ -4,6 +4,9 @@ The _Counter_ type is a `u32` value starting at `0`. This value must never
 repeat or be reset within the same security context. In case the maximum counter
 value has been reached, the device must perform a new Activation Request.
 
+> [!WARNING]
+> Counter values are encoded to little-endian when encoded as bytes.
+
 ## Life-time counters
 
 These counters must be persisted for the life-time of the device:

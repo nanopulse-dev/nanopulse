@@ -4,7 +4,7 @@ use heapless::Vec;
 use rand_core::RngCore;
 
 use nanopulse::frames::{
-    Frame, FrameType, Payload, activation_request, activation_response, key_exchange_request,
+    Frame, Payload, activation_request, activation_response, key_exchange_request,
 };
 use nanopulse::keys;
 
@@ -181,23 +181,12 @@ impl<
         self.counter_ctx.activation_request_counter += 1;
 
         let tx_ch = self.get_random_tx_channel();
-        let enc_key = keys::get_encryption_key(
-            &self.root_security.root_key,
-            FrameType::ActivationRequest,
-            false,
-        );
-        let mic_key = keys::get_mic_key(
-            &self.root_security.root_key,
-            FrameType::ActivationRequest,
-            tx_ch as u8,
-            self.config.data_rate as u8,
-        );
+        let enc_key = keys::get_encryption_key(&self.root_security.root_key);
+        let mic_key = keys::get_mic_key(&self.root_security.root_key);
 
         debug!("root_key: {:02x}", self.root_security.root_key);
-        debug!(
-            "mic key: {:02x} (tx_ch: {}, tx_dr: {})",
-            mic_key, tx_ch, self.config.data_rate
-        );
+        debug!("mic key: {})", mic_key);
+        debug!("enc key: {}", enc_key);
 
         let mut pl = Frame {
             payload: Payload::ActivationRequest(activation_request::ActivationRequest {
@@ -218,10 +207,11 @@ impl<
             error!("encrypt error: {}", e);
             Error::CryptoError
         })?;
-        pl.set_mic(&mic_key).map_err(|e| {
-            error!("set mic error: {}", e);
-            Error::CryptoError
-        })?;
+        pl.set_mic(&mic_key, tx_ch as u8, self.config.data_rate as u8)
+            .map_err(|e| {
+                error!("set mic error: {}", e);
+                Error::CryptoError
+            })?;
 
         let pl = Vec::try_from(&pl).map_err(|_| Error::HeaplessVec)?;
 
@@ -286,23 +276,17 @@ impl<
         };
 
         let tx_ch = self.get_random_tx_channel();
-        let enc_key = keys::get_encryption_key(&self.session.session_root_key, frame_type, false);
-        let mic_key = keys::get_mic_key(
-            &self.session.session_root_key,
-            frame_type,
-            tx_ch as u8,
-            self.config.data_rate as u8,
-        );
 
-        debug!("session_root_key: {:02x}", self.session.session_root_key);
-        debug!("enc_key: {:02x}", enc_key);
-        debug!("mic_key: {:02x}", mic_key);
-
-        f.encrypt(&enc_key).map_err(|e| {
+        f.encrypt(&self.session.enc_key).map_err(|e| {
             error!("encrypt error: {}", e);
             Error::CryptoError
         })?;
-        f.set_mic(&mic_key).map_err(|e| {
+        f.set_mic(
+            &self.session.mic_key,
+            tx_ch as u8,
+            self.config.data_rate as u8,
+        )
+        .map_err(|e| {
             error!("set mic error: {}", e);
             Error::CryptoError
         })?;
@@ -375,21 +359,15 @@ impl<
                     pl.counter
                 );
 
-                let mic_key = keys::get_mic_key(
-                    &root_key,
-                    FrameType::KeyExchangeResponse,
-                    self.rx_ch as u8,
-                    self.rx_dr as u8,
-                );
-                info!(
-                    "mic key: {:02x} (tx_ch: {}, tx_dr: {})",
-                    mic_key, self.rx_ch, self.rx_dr
-                );
+                let mic_key = keys::get_mic_key(&root_key);
+                info!("mic key: {:02x}", mic_key);
 
-                let mic_ok = resp.validate_mic(&mic_key).map_err(|e| {
-                    error!("validate_mic error: {}", e);
-                    Error::FrameError
-                })?;
+                let mic_ok = resp
+                    .validate_mic(&mic_key, self.rx_ch as u8, self.rx_dr as u8)
+                    .map_err(|e| {
+                        error!("validate_mic error: {}", e);
+                        Error::FrameError
+                    })?;
 
                 if !mic_ok {
                     error!("invalid mic");
@@ -418,14 +396,8 @@ impl<
                     self.counter_ctx.activation_request_counter - 1,
                     pl.counter,
                 );
-                let enc_key =
-                    keys::get_encryption_key(&sess_root_key, FrameType::ActivationResponse, true);
-                let mic_key = keys::get_mic_key(
-                    &sess_root_key,
-                    FrameType::ActivationResponse,
-                    self.rx_ch as u8,
-                    self.rx_dr as u8,
-                );
+                let enc_key = keys::get_encryption_key(&sess_root_key);
+                let mic_key = keys::get_mic_key(&sess_root_key);
                 info!(
                     "session root key: {:02x} (req counter: {}, resp counter: {})",
                     sess_root_key,
@@ -433,15 +405,14 @@ impl<
                     pl.counter
                 );
                 info!("encryption key: {:02x}", enc_key);
-                info!(
-                    "mic key: {:02x} (tx_ch: {}, tx_dr: {})",
-                    mic_key, self.rx_ch, self.rx_dr
-                );
+                info!("mic key: {:02x}", mic_key);
 
-                let mic_ok = resp.validate_mic(&mic_key).map_err(|e| {
-                    error!("validate mic error: {}", e);
-                    Error::FrameError
-                })?;
+                let mic_ok = resp
+                    .validate_mic(&mic_key, self.rx_ch as u8, self.rx_dr as u8)
+                    .map_err(|e| {
+                        error!("validate mic error: {}", e);
+                        Error::FrameError
+                    })?;
                 if !mic_ok {
                     error!("invalid mic");
                     return Err(Error::FrameError);
@@ -464,33 +435,19 @@ impl<
 
                 self.session = Default::default();
                 self.session.session_root_key = sess_root_key;
+                self.session.enc_key = enc_key;
+                self.session.mic_key = mic_key;
 
                 write_counters(&mut self.flash, &self.counter_ctx);
                 self.state = State::Idle;
             }
             _ => {
-                let enc_key = keys::get_encryption_key(
-                    &self.session.session_root_key,
-                    resp.frame_type(),
-                    true,
-                );
-                let mic_key = keys::get_mic_key(
-                    &self.session.session_root_key,
-                    resp.frame_type(),
-                    self.rx_ch as u8,
-                    self.rx_dr as u8,
-                );
-
-                debug!("encryption key: {:02x}", enc_key);
-                debug!(
-                    "mic key: {:02x} (tx_ch: {}, tx_dr: {})",
-                    mic_key, self.rx_ch, self.rx_dr,
-                );
-
-                let mic_ok = resp.validate_mic(&mic_key).map_err(|e| {
-                    error!("validate mic error: {}", e);
-                    Error::FrameError
-                })?;
+                let mic_ok = resp
+                    .validate_mic(&self.session.mic_key, self.rx_ch as u8, self.rx_dr as u8)
+                    .map_err(|e| {
+                        error!("validate mic error: {}", e);
+                        Error::FrameError
+                    })?;
 
                 if !mic_ok {
                     error!("invalid mic");
@@ -522,7 +479,7 @@ impl<
                     return Err(Error::CounterError);
                 }
 
-                resp.decrypt(&enc_key).map_err(|e| {
+                resp.decrypt(&self.session.enc_key).map_err(|e| {
                     error!("decrypt error: {}", e);
                     Error::CryptoError
                 })?;

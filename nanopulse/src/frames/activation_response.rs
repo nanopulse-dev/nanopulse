@@ -2,7 +2,7 @@ use chacha20::ChaCha20;
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use heapless::Vec;
 
-use super::{Buffer, FrameType};
+use super::{Buffer, FrameType, get_chacha20_iv};
 use crate::errors::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,9 +19,7 @@ impl ActivationResponse {
             return Err(Error::AlreadyEncrypted);
         };
 
-        let mut iv = [0u8; 12];
-        iv[8..12].copy_from_slice(&self.counter.to_le_bytes());
-
+        let iv = get_chacha20_iv(FrameType::ActivationResponse, true, self.counter);
         let mut cipher = ChaCha20::new(enc_key.into(), &iv.into());
         cipher.apply_keystream(&mut buffer);
 
@@ -37,9 +35,7 @@ impl ActivationResponse {
             return Err(Error::MustBeEncryptedFirst);
         };
 
-        let mut iv = [0u8; 12];
-        iv[8..12].copy_from_slice(&self.counter.to_le_bytes());
-
+        let iv = get_chacha20_iv(FrameType::ActivationResponse, true, self.counter);
         let mut cipher = ChaCha20::new(enc_key.into(), &iv.into());
         cipher.apply_keystream(&mut buffer);
 

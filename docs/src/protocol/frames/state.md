@@ -80,38 +80,14 @@ error messages.
 
 ### Encryption
 
-The Payload is encrypted before transmission using the Encryption Key (see
-below). The `IV` for the encryption key is:
+The Payload is encrypted before transmission. Please see:
 
-| 8 bytes    | 4 bytes |
-| ---------- | ------- |
-| `8 x 0x00` | Counter |
-
-#### Encryption Key
-
-See also [Keys](../glossary/keys.md).
-
-- PRK: `Session Root Key`
-
-- Info:
-
-| 1 byte                        | 1 byte              | 1 byte                             |
-| ----------------------------- | ------------------- | ---------------------------------- |
-| Key usage Encryption = `0x02` | Frame Type = `0x07` | Uplink = `0x00`, Downlink = `0x01` |
-
-## MIC
-
-MIC calculated over the _Frame Header_ + _Payload_ bytes. See also
-[MIC](../glossary/mic.md).
+- [Encryption](../glossary/encryption.md)
+- [Keys](../glossary/keys.md)
 
 ### MIC key
 
-See also [Keys](../glossary/keys.md)
+Please see:
 
-- PRK: `Session Root Key`
-
-- Info:
-
-| 1 byte                 | 1 byte              | 1 byte     | 1 byte       |
-| ---------------------- | ------------------- | ---------- | ------------ |
-| Key usage MIC = `0x01` | Frame Type = `0x07` | Tx Channel | Tx Data-rate |
+- [MIC](../glossary/mic.md)
+- [Keys](../glossary/keys.md)

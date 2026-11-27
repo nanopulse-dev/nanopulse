@@ -4,6 +4,27 @@ Fields that are encrypted, are encrypted and decrypted using ChaCha20. Together
 with the Encryption Key, an unique IV is being used to make sure that encrypting
 the same plaintext never result in the same ciphertext.
 
+## IV
+
+The IV is defined as follow:
+
+| 1 byte     | 1 byte   | 6 bytes    | 4 bytes |
+| ---------- | -------- | ---------- | ------- |
+| Frame Type | Downlink | 6 x `0x00` | Counter |
+
+### Frame Type
+
+See [Frames](../frames/index.md).
+
+### Downlink
+
+- `0x00` for uplink
+- `0x01` for downlink
+
+### Counter
+
+See [Counter](./counter.md).
+
 ## Rust example
 
 > [!NOTE]

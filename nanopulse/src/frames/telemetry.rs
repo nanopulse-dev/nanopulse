@@ -3,7 +3,7 @@ use chacha20::cipher::{KeyIvInit, StreamCipher};
 use heapless::Vec;
 
 use crate::errors::Error;
-use crate::frames::{Buffer, FrameType};
+use crate::frames::{Buffer, FrameType, get_chacha20_iv};
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Telemetry {
@@ -14,9 +14,7 @@ pub struct Telemetry {
 
 impl Telemetry {
     pub fn encrypt(&mut self, enc_key: &[u8; 32]) -> Result<(), Error> {
-        let mut iv = [0u8; 12];
-        iv[8..12].copy_from_slice(&self.counter.to_le_bytes());
-
+        let iv = get_chacha20_iv(FrameType::Telemetry, false, self.counter);
         let mut cipher = ChaCha20::new(enc_key.into(), &iv.into());
         cipher.apply_keystream(&mut self.payload);
 

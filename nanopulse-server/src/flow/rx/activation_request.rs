@@ -5,7 +5,7 @@ use chrono::Utc;
 use nanopulse::keys;
 use tracing::{Instrument, Level, debug, error, info, span, trace, warn};
 
-use nanopulse::frames::{self, FrameType, activation_request, activation_response};
+use nanopulse::frames::{self,  activation_request, activation_response};
 use nanopulse_structs::gateway::{Timing, TimingDelay, TxCommand};
 
 use crate::errors::Error;
@@ -100,14 +100,12 @@ impl Flow {
             };
 
             for root_key in &root_keys {
-                let mic_key = keys::get_mic_key(
-                    root_key.as_ref(),
-                    FrameType::ActivationRequest,
+                let mic_key = keys::get_mic_key(root_key.as_ref());
+                if self.frame_set.frame.validate_mic(
+                    &mic_key,
                     self.frame_set.ul_ch,
                     self.frame_set.ul_dr,
-                );
-
-                if self.frame_set.frame.validate_mic(&mic_key)? {
+                )? {
                     info!(id = device.id, "found matching device");
 
                     // This validates that the counter has incremented + immediately updates the
@@ -143,11 +141,7 @@ impl Flow {
     async fn decrypt_payload(&mut self) -> Result<(), Error> {
         trace!("decrypt_payload fn");
 
-        let enc_key = keys::get_encryption_key(
-            self.device.root_key.as_ref(),
-            FrameType::ActivationRequest,
-            false,
-        );
+        let enc_key = keys::get_encryption_key(self.device.root_key.as_ref());
         self.payload.decrypt(&enc_key)?;
 
         if let activation_request::ProfileInfo::Plain(v) = &self.payload.profile_info {
@@ -229,17 +223,8 @@ impl Flow {
             .get_downlink_data_rate(self.frame_set.ul_dr);
         let dl_gw = self.frame_set.get_downlink_gateway();
 
-        let enc_key = keys::get_encryption_key(
-            self.device.session_root_key.as_ref(),
-            FrameType::ActivationResponse,
-            true,
-        );
-        let mic_key = keys::get_mic_key(
-            self.device.session_root_key.as_ref(),
-            FrameType::ActivationResponse,
-            dl_ch,
-            dl_dr,
-        );
+        let enc_key = keys::get_encryption_key(self.device.session_root_key.as_ref());
+        let mic_key = keys::get_mic_key(self.device.session_root_key.as_ref());
 
         let conf = config::get();
         let network_defaults = conf
@@ -267,7 +252,7 @@ impl Flow {
             mic: None,
         };
         pl.encrypt(&enc_key)?;
-        pl.set_mic(&mic_key)?;
+        pl.set_mic(&mic_key, dl_ch, dl_dr)?;
 
         let tx_cmd = TxCommand {
             id: 0,

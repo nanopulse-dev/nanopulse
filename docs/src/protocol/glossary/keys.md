@@ -10,8 +10,8 @@ flowchart TD
     end
 
     PRK -->|Expand + info| SRK[Session Root Key]
-    SRK -->|Expand + info| MICK[MIC Keys]
-    SRK -->|Expand + info| ENCK[Encryption Keys]
+    SRK -->|Expand + info| MICK[MIC Key]
+    SRK -->|Expand + info| ENCK[Encryption Key]
 ```
 
 ## Key-pair
@@ -86,7 +86,37 @@ let hk = Hkdf::<Sha256>::from_prk(root_key).unwrap();
 hk.expand(&info, &mut session_root_key).unwrap();
 ```
 
-### Further key expansion
+### MIC Key
 
-Other keys are derived by using the _Session Root Key_ as PRK input and using
-the frame / payload specific `info`.
+> [!WARNING]
+> In case of a _Key Exchange Response_ and _Activation Request_ frame, the
+> _Session Root Key_ has not yet been establised and the _Root Key_ is being
+> used.
+
+The _MIC Key_ is derived from the _Session Root Key_, using the following
+parameters:
+
+- PRK: `Session Root Key`
+
+- Info:
+
+| 1 byte                 |
+| ---------------------- |
+| Key Usage MIC = `0x01` |
+
+### Encryption Key
+
+> [!WARNING]
+> In case of an _Activation Request_ frame, the _Session Root Key_ has not yet
+> been establised and the _Root Key_ is being used.
+
+The _Encryption Key_ is derived from the _Session Root Key_, using the following
+parameters:
+
+- PRK: `Session Root Key`
+
+- Info:
+
+| 1 byte                        |
+| ----------------------------- |
+| Key Usage Encryption = `0x02` |

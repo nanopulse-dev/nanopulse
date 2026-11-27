@@ -60,38 +60,14 @@ _Profile ID_ and _Version ID_ is used to lookup the device and its capabilities
 
 ### Encryption
 
-The Profile Info field is encrypted before transmission using the Encryption Key
-(see below). The `IV` for the encryption key is:
+The Profile Info fields is encrypted before transmission. Please see:
 
-| 8 bytes    | 4 bytes                    |
-| ---------- | -------------------------- |
-| `8 x 0x00` | Activation Request Counter |
-
-#### Encryption key
-
-See also [Keys](../glossary/keys.md).
-
-- PRK: `Root Key`
-
-- Info:
-
-| 1 byte                        | 1 byte              | 1 byte            |
-| ----------------------------- | ------------------- | ----------------- |
-| Key usage Encryption = `0x02` | Frame Type = `0x02` | Downlink = `0x01` |
+- [Encryption](../glossary/encryption.md)
+- [Keys](../glossary/keys.md)
 
 ## MIC
 
-MIC calculated over all frame bytes, except the last 4 MIC bytes. See also
-[MIC](../glossary/mic.md).
+Please see:
 
-### MIC key
-
-See also [Keys](../glossary/keys.md).
-
-- PRK: `Root Key`
-
-- Info:
-
-| 1 byte                 | 1 byte              | 1 byte     | 1 byte       |
-| ---------------------- | ------------------- | ---------- | ------------ |
-| Key usage MIC = `0x01` | Frame Type = `0x02` | Tx Channel | Tx Data-rate |
+- [MIC](../glossary/mic.md)
+- [Keys](../glossary/keys.md)

@@ -2,11 +2,7 @@ use std::time::Duration;
 
 use tracing::{Instrument, Level, span, trace, warn};
 
-use nanopulse::{
-    frames,
-    frames::{FrameType, configuration},
-    keys,
-};
+use nanopulse::{frames, frames::configuration, keys};
 use nanopulse_structs::gateway::{Timing, TimingDelay, TxCommand};
 
 use crate::errors::Error;
@@ -98,17 +94,8 @@ impl Flow {
             .get_downlink_data_rate(self.frame_set.ul_dr);
         let dl_gw = self.frame_set.get_downlink_gateway();
 
-        let enc_key = keys::get_encryption_key(
-            self.device.session_root_key.as_ref(),
-            FrameType::Configuration,
-            true,
-        );
-        let mic_key = keys::get_mic_key(
-            self.device.session_root_key.as_ref(),
-            FrameType::Configuration,
-            dl_ch,
-            dl_dr,
-        );
+        let enc_key = keys::get_encryption_key(self.device.session_root_key.as_ref());
+        let mic_key = keys::get_mic_key(self.device.session_root_key.as_ref());
 
         let counter_down = self.device.counter_down;
         self.device_changeset.counter_down = Some(self.device.counter_down + 1);
@@ -126,7 +113,7 @@ impl Flow {
             mic: None,
         };
         pl.encrypt(&enc_key)?;
-        pl.set_mic(&mic_key)?;
+        pl.set_mic(&mic_key, dl_ch, dl_dr)?;
 
         let tx_cmd = TxCommand {
             id: 0,

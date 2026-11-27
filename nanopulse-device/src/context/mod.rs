@@ -20,6 +20,8 @@ unsafe extern "C" {
 #[derive(Default)]
 pub struct Session {
     pub session_root_key: [u8; 32],
+    pub enc_key: [u8; 32],
+    pub mic_key: [u8; 32],
     pub counter_up: u32,
     pub counter_down: u32,
     pub channel_plan_id: u8,
