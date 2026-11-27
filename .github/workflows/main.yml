@@ -15,18 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
-        name: Remove pre-installed software
-        run: |
-          echo "Before cleanup:"
-          df -h
-          sudo rm -rf /usr/share/dotnet \
-                       /usr/local/lib/android \
-                       /opt/ghc \
-                       /usr/local/share/boost \
-                       "$AGENT_TOOLSDIRECTORY"
-          echo "After cleanup:"
-          df -h
-      -
         name: Checkout
         uses: actions/checkout@v7
       -
@@ -38,12 +26,11 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            ~/.cache/mise/downloads-cas
             target/
-          key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-${{ hashFiles('mise.lock') }}
-      - uses: jdx/mise-action@v5
-        with:
-          cache: false
+          key: ${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+      - 
+        name: setup mise
+        uses: jdx/mise-action@v5
       -
         name: Run tests
         run: mise run test
